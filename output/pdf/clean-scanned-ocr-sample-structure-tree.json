@@ -1,0 +1,956 @@
+{
+  "document": {
+    "path": "/Users/matthewphan/Downloads/clean_scanned_ocr_sample-reconstructed-(1)-remediated.pdf",
+    "pdf_version": "1.4",
+    "pages": 4,
+    "tagged": true,
+    "lang": "en",
+    "mark_info": {
+      "/Marked": true
+    }
+  },
+  "structure_root": {
+    "ref": "5 0 R",
+    "role_map": null,
+    "class_map": null,
+    "parent_tree_ref": "11 0 R",
+    "parent_tree_next_key": null
+  },
+  "summary": {
+    "element_count": 19,
+    "mcid_item_count": 18,
+    "tag_counts": {
+      "Document": 1,
+      "Figure": 10,
+      "H1": 4,
+      "P": 4
+    }
+  },
+  "tree_lines": [
+    "StructTreeRoot [5 0 R]",
+    "└── Document [10 0 R]",
+    "    ├── H1 [20 0 R] | page=1 | MCID 0: \"Document Title - Page 1\"",
+    "    ├── P [21 0 R] | page=1 | MCID 1: \"This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.\"",
+    "    ├── Figure [22 0 R] | page=1 | Alt=\"[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (c493bee9).\" | MCID 2: <empty marked-content sequence>",
+    "    ├── H1 [23 0 R] | page=2 | MCID 0: \"Document Title - Page 2\"",
+    "    ├── P [24 0 R] | page=2 | MCID 1: \"This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.\"",
+    "    ├── Figure [25 0 R] | page=2 | Alt=\"[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (695e8fd6).\" | MCID 2: <empty marked-content sequence>",
+    "    ├── Figure [26 0 R] | page=2 | Alt=\"[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (80f5190a).\" | MCID 3: <empty marked-content sequence>",
+    "    ├── H1 [27 0 R] | page=3 | MCID 0: \"Document Title - Page 3\"",
+    "    ├── P [28 0 R] | page=3 | MCID 1: \"This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.\"",
+    "    ├── Figure [29 0 R] | page=3 | Alt=\"[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (3a452eb8).\" | MCID 2: <empty marked-content sequence>",
+    "    ├── Figure [30 0 R] | page=3 | Alt=\"[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (38745b28).\" | MCID 3: <empty marked-content sequence>",
+    "    ├── Figure [31 0 R] | page=3 | Alt=\"[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (8b9d24a8).\" | MCID 4: <empty marked-content sequence>",
+    "    ├── Figure [32 0 R] | page=3 | Alt=\"[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (cb92a994).\" | MCID 5: <empty marked-content sequence>",
+    "    ├── Figure [33 0 R] | page=3 | Alt=\"[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (320365a9).\" | MCID 6: <empty marked-content sequence>",
+    "    ├── H1 [34 0 R] | page=4 | MCID 0: \"Document Title - Page 4\"",
+    "    ├── P [35 0 R] | page=4 | MCID 1: \"This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.\"",
+    "    ├── Figure [36 0 R] | page=4 | Alt=\"[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (8afcb44f).\" | MCID 2: <empty marked-content sequence>",
+    "    └── Figure [37 0 R] | page=4 | Alt=\"[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (34e4fc93).\" | MCID 3: <empty marked-content sequence>"
+  ],
+  "elements": [
+    {
+      "index": 1,
+      "ref": "10 0 R",
+      "tag": "Document",
+      "page": null,
+      "alt": null,
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": null,
+      "classes": null,
+      "content_items": [],
+      "child_count": 18
+    },
+    {
+      "index": 2,
+      "ref": "20 0 R",
+      "tag": "H1",
+      "page": 1,
+      "alt": null,
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": null,
+      "classes": null,
+      "content_items": [
+        {
+          "type": "MCID",
+          "mcid": 0,
+          "page": 1,
+          "mcr_ref": null,
+          "marked_content": {
+            "tags": [
+              "/H1"
+            ],
+            "xobjects": [],
+            "operators": [
+              "BDC",
+              "Tj",
+              "EMC"
+            ],
+            "properties": {
+              "/MCID": 0
+            },
+            "text": "Document Title - Page 1"
+          }
+        }
+      ],
+      "child_count": 0
+    },
+    {
+      "index": 3,
+      "ref": "21 0 R",
+      "tag": "P",
+      "page": 1,
+      "alt": null,
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": null,
+      "classes": null,
+      "content_items": [
+        {
+          "type": "MCID",
+          "mcid": 1,
+          "page": 1,
+          "mcr_ref": null,
+          "marked_content": {
+            "tags": [
+              "/P"
+            ],
+            "xobjects": [],
+            "operators": [
+              "BDC",
+              "Tj",
+              "EMC"
+            ],
+            "properties": {
+              "/MCID": 1
+            },
+            "text": "This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content."
+          }
+        }
+      ],
+      "child_count": 0
+    },
+    {
+      "index": 4,
+      "ref": "22 0 R",
+      "tag": "Figure",
+      "page": 1,
+      "alt": "[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (c493bee9).",
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": {
+        "/BBox": [
+          "299.692188",
+          "623.588856",
+          "566.193501",
+          "719.498835"
+        ],
+        "/O": "/Layout"
+      },
+      "classes": null,
+      "content_items": [
+        {
+          "type": "MCID",
+          "mcid": 2,
+          "page": 1,
+          "mcr_ref": null,
+          "marked_content": {
+            "tags": [
+              "/Figure"
+            ],
+            "xobjects": [],
+            "operators": [
+              "BDC",
+              "EMC"
+            ],
+            "properties": {
+              "/MCID": 2
+            },
+            "text": ""
+          }
+        }
+      ],
+      "child_count": 0
+    },
+    {
+      "index": 5,
+      "ref": "23 0 R",
+      "tag": "H1",
+      "page": 2,
+      "alt": null,
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": null,
+      "classes": null,
+      "content_items": [
+        {
+          "type": "MCID",
+          "mcid": 0,
+          "page": 2,
+          "mcr_ref": null,
+          "marked_content": {
+            "tags": [
+              "/H1"
+            ],
+            "xobjects": [],
+            "operators": [
+              "BDC",
+              "Tj",
+              "EMC"
+            ],
+            "properties": {
+              "/MCID": 0
+            },
+            "text": "Document Title - Page 2"
+          }
+        }
+      ],
+      "child_count": 0
+    },
+    {
+      "index": 6,
+      "ref": "24 0 R",
+      "tag": "P",
+      "page": 2,
+      "alt": null,
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": null,
+      "classes": null,
+      "content_items": [
+        {
+          "type": "MCID",
+          "mcid": 1,
+          "page": 2,
+          "mcr_ref": null,
+          "marked_content": {
+            "tags": [
+              "/P"
+            ],
+            "xobjects": [],
+            "operators": [
+              "BDC",
+              "Tj",
+              "EMC"
+            ],
+            "properties": {
+              "/MCID": 1
+            },
+            "text": "This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content."
+          }
+        }
+      ],
+      "child_count": 0
+    },
+    {
+      "index": 7,
+      "ref": "25 0 R",
+      "tag": "Figure",
+      "page": 2,
+      "alt": "[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (695e8fd6).",
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": {
+        "/BBox": [
+          "255.067664",
+          "303.970454",
+          "569.13579",
+          "438.634723"
+        ],
+        "/O": "/Layout"
+      },
+      "classes": null,
+      "content_items": [
+        {
+          "type": "MCID",
+          "mcid": 2,
+          "page": 2,
+          "mcr_ref": null,
+          "marked_content": {
+            "tags": [
+              "/Figure"
+            ],
+            "xobjects": [],
+            "operators": [
+              "BDC",
+              "EMC"
+            ],
+            "properties": {
+              "/MCID": 2
+            },
+            "text": ""
+          }
+        }
+      ],
+      "child_count": 0
+    },
+    {
+      "index": 8,
+      "ref": "26 0 R",
+      "tag": "Figure",
+      "page": 2,
+      "alt": "[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (80f5190a).",
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": {
+        "/BBox": [
+          "45.482261",
+          "384.593043",
+          "240.878494",
+          "519.864543"
+        ],
+        "/O": "/Layout"
+      },
+      "classes": null,
+      "content_items": [
+        {
+          "type": "MCID",
+          "mcid": 3,
+          "page": 2,
+          "mcr_ref": null,
+          "marked_content": {
+            "tags": [
+              "/Figure"
+            ],
+            "xobjects": [],
+            "operators": [
+              "BDC",
+              "EMC"
+            ],
+            "properties": {
+              "/MCID": 3
+            },
+            "text": ""
+          }
+        }
+      ],
+      "child_count": 0
+    },
+    {
+      "index": 9,
+      "ref": "27 0 R",
+      "tag": "H1",
+      "page": 3,
+      "alt": null,
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": null,
+      "classes": null,
+      "content_items": [
+        {
+          "type": "MCID",
+          "mcid": 0,
+          "page": 3,
+          "mcr_ref": null,
+          "marked_content": {
+            "tags": [
+              "/H1"
+            ],
+            "xobjects": [],
+            "operators": [
+              "BDC",
+              "Tj",
+              "EMC"
+            ],
+            "properties": {
+              "/MCID": 0
+            },
+            "text": "Document Title - Page 3"
+          }
+        }
+      ],
+      "child_count": 0
+    },
+    {
+      "index": 10,
+      "ref": "28 0 R",
+      "tag": "P",
+      "page": 3,
+      "alt": null,
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": null,
+      "classes": null,
+      "content_items": [
+        {
+          "type": "MCID",
+          "mcid": 1,
+          "page": 3,
+          "mcr_ref": null,
+          "marked_content": {
+            "tags": [
+              "/P"
+            ],
+            "xobjects": [],
+            "operators": [
+              "BDC",
+              "Tj",
+              "EMC"
+            ],
+            "properties": {
+              "/MCID": 1
+            },
+            "text": "This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content."
+          }
+        }
+      ],
+      "child_count": 0
+    },
+    {
+      "index": 11,
+      "ref": "29 0 R",
+      "tag": "Figure",
+      "page": 3,
+      "alt": "[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (3a452eb8).",
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": {
+        "/BBox": [
+          "43.363375",
+          "253.886071",
+          "255.868722",
+          "401.895346"
+        ],
+        "/O": "/Layout"
+      },
+      "classes": null,
+      "content_items": [
+        {
+          "type": "MCID",
+          "mcid": 2,
+          "page": 3,
+          "mcr_ref": null,
+          "marked_content": {
+            "tags": [
+              "/Figure"
+            ],
+            "xobjects": [],
+            "operators": [
+              "BDC",
+              "EMC"
+            ],
+            "properties": {
+              "/MCID": 2
+            },
+            "text": ""
+          }
+        }
+      ],
+      "child_count": 0
+    },
+    {
+      "index": 12,
+      "ref": "30 0 R",
+      "tag": "Figure",
+      "page": 3,
+      "alt": "[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (38745b28).",
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": {
+        "/BBox": [
+          "269.328653",
+          "254.470303",
+          "568.129346",
+          "400.614265"
+        ],
+        "/O": "/Layout"
+      },
+      "classes": null,
+      "content_items": [
+        {
+          "type": "MCID",
+          "mcid": 3,
+          "page": 3,
+          "mcr_ref": null,
+          "marked_content": {
+            "tags": [
+              "/Figure"
+            ],
+            "xobjects": [],
+            "operators": [
+              "BDC",
+              "EMC"
+            ],
+            "properties": {
+              "/MCID": 3
+            },
+            "text": ""
+          }
+        }
+      ],
+      "child_count": 0
+    },
+    {
+      "index": 13,
+      "ref": "31 0 R",
+      "tag": "Figure",
+      "page": 3,
+      "alt": "[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (8b9d24a8).",
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": {
+        "/BBox": [
+          "42.98381",
+          "743.264685",
+          "179.865816",
+          "774.526079"
+        ],
+        "/O": "/Layout"
+      },
+      "classes": null,
+      "content_items": [
+        {
+          "type": "MCID",
+          "mcid": 4,
+          "page": 3,
+          "mcr_ref": null,
+          "marked_content": {
+            "tags": [
+              "/Figure"
+            ],
+            "xobjects": [],
+            "operators": [
+              "BDC",
+              "EMC"
+            ],
+            "properties": {
+              "/MCID": 4
+            },
+            "text": ""
+          }
+        }
+      ],
+      "child_count": 0
+    },
+    {
+      "index": 14,
+      "ref": "32 0 R",
+      "tag": "Figure",
+      "page": 3,
+      "alt": "[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (cb92a994).",
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": {
+        "/BBox": [
+          "273.905918",
+          "580.406855",
+          "569.329328",
+          "720.019947"
+        ],
+        "/O": "/Layout"
+      },
+      "classes": null,
+      "content_items": [
+        {
+          "type": "MCID",
+          "mcid": 5,
+          "page": 3,
+          "mcr_ref": null,
+          "marked_content": {
+            "tags": [
+              "/Figure"
+            ],
+            "xobjects": [],
+            "operators": [
+              "BDC",
+              "EMC"
+            ],
+            "properties": {
+              "/MCID": 5
+            },
+            "text": ""
+          }
+        }
+      ],
+      "child_count": 0
+    },
+    {
+      "index": 15,
+      "ref": "33 0 R",
+      "tag": "Figure",
+      "page": 3,
+      "alt": "[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (320365a9).",
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": {
+        "/BBox": [
+          "274.375638",
+          "580.371072",
+          "569.4624",
+          "719.798845"
+        ],
+        "/O": "/Layout"
+      },
+      "classes": null,
+      "content_items": [
+        {
+          "type": "MCID",
+          "mcid": 6,
+          "page": 3,
+          "mcr_ref": null,
+          "marked_content": {
+            "tags": [
+              "/Figure"
+            ],
+            "xobjects": [],
+            "operators": [
+              "BDC",
+              "EMC"
+            ],
+            "properties": {
+              "/MCID": 6
+            },
+            "text": ""
+          }
+        }
+      ],
+      "child_count": 0
+    },
+    {
+      "index": 16,
+      "ref": "34 0 R",
+      "tag": "H1",
+      "page": 4,
+      "alt": null,
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": null,
+      "classes": null,
+      "content_items": [
+        {
+          "type": "MCID",
+          "mcid": 0,
+          "page": 4,
+          "mcr_ref": null,
+          "marked_content": {
+            "tags": [
+              "/H1"
+            ],
+            "xobjects": [],
+            "operators": [
+              "BDC",
+              "Tj",
+              "EMC"
+            ],
+            "properties": {
+              "/MCID": 0
+            },
+            "text": "Document Title - Page 4"
+          }
+        }
+      ],
+      "child_count": 0
+    },
+    {
+      "index": 17,
+      "ref": "35 0 R",
+      "tag": "P",
+      "page": 4,
+      "alt": null,
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": null,
+      "classes": null,
+      "content_items": [
+        {
+          "type": "MCID",
+          "mcid": 1,
+          "page": 4,
+          "mcr_ref": null,
+          "marked_content": {
+            "tags": [
+              "/P"
+            ],
+            "xobjects": [],
+            "operators": [
+              "BDC",
+              "Tj",
+              "EMC"
+            ],
+            "properties": {
+              "/MCID": 1
+            },
+            "text": "This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content."
+          }
+        }
+      ],
+      "child_count": 0
+    },
+    {
+      "index": 18,
+      "ref": "36 0 R",
+      "tag": "Figure",
+      "page": 4,
+      "alt": "[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (8afcb44f).",
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": {
+        "/BBox": [
+          "44.835658",
+          "296.523437",
+          "262.526023",
+          "432.702819"
+        ],
+        "/O": "/Layout"
+      },
+      "classes": null,
+      "content_items": [
+        {
+          "type": "MCID",
+          "mcid": 2,
+          "page": 4,
+          "mcr_ref": null,
+          "marked_content": {
+            "tags": [
+              "/Figure"
+            ],
+            "xobjects": [],
+            "operators": [
+              "BDC",
+              "EMC"
+            ],
+            "properties": {
+              "/MCID": 2
+            },
+            "text": ""
+          }
+        }
+      ],
+      "child_count": 0
+    },
+    {
+      "index": 19,
+      "ref": "37 0 R",
+      "tag": "Figure",
+      "page": 4,
+      "alt": "[stub] Figure near 'This is sample content extracted from a scanned document. The OCR provider has recognized this text with high confidence. In a real scenario, this would contain the actual document content.' (34e4fc93).",
+      "actual_text": null,
+      "title": null,
+      "language": null,
+      "attributes": {
+        "/BBox": [
+          "42.500042",
+          "632.730997",
+          "569.431642",
+          "718.412742"
+        ],
+        "/O": "/Layout"
+      },
+      "classes": null,
+      "content_items": [
+        {
+          "type": "MCID",
+          "mcid": 3,
+          "page": 4,
+          "mcr_ref": null,
+          "marked_content": {
+            "tags": [
+              "/Figure"
+            ],
+            "xobjects": [],
+            "operators": [
+              "BDC",
+              "EMC"
+            ],
+            "properties": {
+              "/MCID": 3
+            },
+            "text": ""
+          }
+        }
+      ],
+      "child_count": 0
+    }
+  ],
+  "pages": {
+    "1": {
+      "struct_parents": 0,
+      "mcids": [
+        0,
+        1,
+        2
+      ],
+      "artifacts": [
+        {
+          "tag": "/Artifact",
+          "mcid": null,
+          "properties": {
+            "/Type": "/Background"
+          },
+          "xobjects": [
+            "/image"
+          ]
+        }
+      ],
+      "untagged_text": "",
+      "untagged_xobjects": [],
+      "fonts_used": [
+        "/F1"
+      ],
+      "defined_fonts": [],
+      "undefined_fonts": [
+        "/F1"
+      ]
+    },
+    "2": {
+      "struct_parents": 1,
+      "mcids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "artifacts": [
+        {
+          "tag": "/Artifact",
+          "mcid": null,
+          "properties": {
+            "/Type": "/Background"
+          },
+          "xobjects": [
+            "/image"
+          ]
+        }
+      ],
+      "untagged_text": "",
+      "untagged_xobjects": [],
+      "fonts_used": [
+        "/F1"
+      ],
+      "defined_fonts": [],
+      "undefined_fonts": [
+        "/F1"
+      ]
+    },
+    "3": {
+      "struct_parents": 2,
+      "mcids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "artifacts": [
+        {
+          "tag": "/Artifact",
+          "mcid": null,
+          "properties": {
+            "/Type": "/Background"
+          },
+          "xobjects": [
+            "/image"
+          ]
+        }
+      ],
+      "untagged_text": "",
+      "untagged_xobjects": [],
+      "fonts_used": [
+        "/F1"
+      ],
+      "defined_fonts": [],
+      "undefined_fonts": [
+        "/F1"
+      ]
+    },
+    "4": {
+      "struct_parents": 3,
+      "mcids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "artifacts": [
+        {
+          "tag": "/Artifact",
+          "mcid": null,
+          "properties": {
+            "/Type": "/Background"
+          },
+          "xobjects": [
+            "/image"
+          ]
+        }
+      ],
+      "untagged_text": "",
+      "untagged_xobjects": [],
+      "fonts_used": [
+        "/F1"
+      ],
+      "defined_fonts": [],
+      "undefined_fonts": [
+        "/F1"
+      ]
+    }
+  },
+  "parent_tree": [
+    {
+      "key": 0,
+      "element_refs_by_mcid": [
+        "20 0 R",
+        "21 0 R",
+        "22 0 R"
+      ]
+    },
+    {
+      "key": 1,
+      "element_refs_by_mcid": [
+        "23 0 R",
+        "24 0 R",
+        "25 0 R",
+        "26 0 R"
+      ]
+    },
+    {
+      "key": 2,
+      "element_refs_by_mcid": [
+        "27 0 R",
+        "28 0 R",
+        "29 0 R",
+        "30 0 R",
+        "31 0 R",
+        "32 0 R",
+        "33 0 R"
+      ]
+    },
+    {
+      "key": 3,
+      "element_refs_by_mcid": [
+        "34 0 R",
+        "35 0 R",
+        "36 0 R",
+        "37 0 R"
+      ]
+    }
+  ],
+  "warnings": [
+    "Page 1 uses undefined page-font resource(s) /F1. The raw string operands are present, but text extraction and screen-reader decoding are unreliable without a valid font mapping or /ActualText.",
+    "Page 2 uses undefined page-font resource(s) /F1. The raw string operands are present, but text extraction and screen-reader decoding are unreliable without a valid font mapping or /ActualText.",
+    "Page 3 uses undefined page-font resource(s) /F1. The raw string operands are present, but text extraction and screen-reader decoding are unreliable without a valid font mapping or /ActualText.",
+    "Page 4 uses undefined page-font resource(s) /F1. The raw string operands are present, but text extraction and screen-reader decoding are unreliable without a valid font mapping or /ActualText.",
+    "All 10 /Figure elements point to empty marked-content sequences (no text and no XObject drawing operation). Their only meaningful payload is /Alt plus /A /BBox; the full-page scan image is marked /Artifact."
+  ]
+}

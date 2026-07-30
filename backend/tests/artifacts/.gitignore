@@ -1,0 +1,4 @@
+# Debug artifacts generated on test failure (overlay PNGs, transcripts)
+# These are ephemeral diagnostic output, not tracked in version control.
+*
+!.gitignore

@@ -1,0 +1,100 @@
+name: Deploy Frontend to S3 + CloudFront
+
+on:
+  push:
+    branches:
+      - anoushka
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout code
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      # 3. Install dependencies
+      - name: Install dependencies
+        run: npm ci
+        working-directory: app
+
+      # 4. Build
+      - name: Build
+        run: npm run build
+        working-directory: app
+
+      # 5. Configure AWS credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # 6. Deploy CloudFormation stack (creates bucket + CloudFront if first run)
+      - name: Deploy CloudFormation stack
+        run: |
+          aws cloudformation deploy \
+            --stack-name csus-pdf-assistant-frontend-prod \
+            --template-file infra/frontend.yml \
+            --parameter-overrides AppName=csus-pdf-assistant Environment=prod \
+            --capabilities CAPABILITY_IAM \
+            --no-fail-on-empty-changeset
+
+      # 7. Read stack outputs
+      - name: Get stack outputs
+        id: stack
+        run: |
+          BUCKET=$(aws cloudformation describe-stacks \
+            --stack-name csus-pdf-assistant-frontend-prod \
+            --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" \
+            --output text)
+          DIST_ID=$(aws cloudformation describe-stacks \
+            --stack-name csus-pdf-assistant-frontend-prod \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
+            --output text)
+          CF_URL=$(aws cloudformation describe-stacks \
+            --stack-name csus-pdf-assistant-frontend-prod \
+            --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDomain'].OutputValue" \
+            --output text)
+          echo "bucket=$BUCKET"     >> $GITHUB_OUTPUT
+          echo "dist_id=$DIST_ID"   >> $GITHUB_OUTPUT
+          echo "cf_url=$CF_URL"     >> $GITHUB_OUTPUT
+
+      # 8. Sync hashed assets (long cache)
+      - name: Sync assets to S3
+        run: |
+          aws s3 sync app/dist "s3://${{ steps.stack.outputs.bucket }}" \
+            --exclude "index.html" \
+            --exclude "service-worker.js" \
+            --cache-control "public, max-age=31536000, immutable" \
+            --delete
+
+      # 9. Upload entry points (no cache)
+      - name: Upload index.html
+        run: |
+          aws s3 cp app/dist/index.html "s3://${{ steps.stack.outputs.bucket }}/index.html" \
+            --content-type "text/html" \
+            --cache-control "no-cache, no-store, must-revalidate"
+
+      # 10. Invalidate CloudFront cache
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.stack.outputs.dist_id }} \
+            --paths "/*"
+
+      # 11. Print the live URL
+      - name: Print live URL
+        run: echo "Deployed to ${{ steps.stack.outputs.cf_url }}"

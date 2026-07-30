@@ -1,0 +1,35 @@
+# Node
+node_modules/
+dist/
+.vite/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+.kiro/
+
+# Local work / job store
+work/
+backend/work/
+/tmp/
+
+# CDK
+cdk.out/

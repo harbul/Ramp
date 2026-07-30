@@ -1,0 +1,29 @@
+# CDK asset staging directory
+.cdk.staging/
+cdk.out/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/
+*.egg-info/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# CDK Context & Staging
+cdk.context.json
