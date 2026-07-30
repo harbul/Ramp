@@ -47,7 +47,7 @@ export function Banner({ onHome, onDashboard, onRemediate, currentView }: Banner
             className={`banner__nav-link ${currentView === 'remediate' ? 'banner__nav-link--active' : ''}`}
             onClick={onRemediate}
           >
-            Remediate
+            Workbench
           </button>
         </nav>
         <p className="banner__meta">
