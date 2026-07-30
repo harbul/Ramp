@@ -400,7 +400,7 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
   }).length
 
   const sections = wcag ? groupIntoSections(wcag) : []
-  const downloadUrl = doc ? api.originalUrl(doc.docId) : null
+  const downloadUrl = doc ? api.originalDownloadUrl(doc.docId) : null
 
   // What to tell the reviewer to do about each manual/Compliance finding.
   // Keyed by rule_id from core/wcag.py. These are demo-friendly, editor-agnostic
@@ -727,18 +727,30 @@ function ScanSummary({
   onStartOcr: () => void
   busy: boolean
 }) {
-  // OCR-eligible scanned document
+  // \u2500\u2500 OCR-eligible scanned document \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   if (scan.route === 'OCR_RECONSTRUCTION') {
     return (
       <div className="panel scan-panel">
         <div className="panel__body panel__body--summary">
           <Badge tone="warn" dot>
-            Scanned document
+            Scanned document \u2014 different pipeline
           </Badge>
           <p>
-            <strong>{doc.filename}</strong> is a scanned PDF with {scan.pageCount} page
-            {scan.pageCount === 1 ? '' : 's'}. It can be reconstructed using OCR to add text layers,
-            structure tags, and accessibility metadata.
+            <strong>{doc.filename}</strong> is a scanned (bitmap) PDF with {scan.pageCount} page
+            {scan.pageCount === 1 ? '' : 's'} and no real text layer \u2014 the pages are just images
+            of paper.
+          </p>
+          <p style={{ marginTop: '.4rem' }}>
+            <strong>Reconstruct with OCR</strong> is a different pipeline from the normal
+            Find Issues / Fix flow. It runs Amazon Textract on every page to extract the text,
+            then rebuilds the PDF from scratch with: a real (screen-reader-readable) text layer,
+            a structure tree (H1 / paragraphs / figures), and detected figure regions ready for
+            alt text.
+          </p>
+          <p style={{ marginTop: '.4rem', color: 'var(--ink-soft)', fontSize: '.9rem' }}>
+            You'd use <em>Find Issues</em> for a digital PDF that just needs metadata / tags / alt
+            text patched. You use <em>Reconstruct with OCR</em> when the PDF has no real text
+            underneath \u2014 there's nothing to patch, so the whole document is rebuilt.
           </p>
           <div className="actions" style={{ marginTop: '1rem' }}>
             <button
@@ -755,65 +767,71 @@ function ScanSummary({
     )
   }
 
-  // Unsupported document
-  if (scan.route === 'UNSUPPORTED') {
+  // \u2500\u2500 Hard-block reasons: truly nothing we can do \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // For these, clicking Find Issues would still produce a WCAG report, but the
+  // reviewer really can't proceed until the underlying issue is resolved.
+  const HARD_BLOCKS = new Set([
+    'FILE_TOO_LARGE',
+    'TOO_MANY_PAGES',
+    'CORRUPT_PDF',
+    'ENCRYPTED_PDF',
+    'DIGITALLY_SIGNED',
+  ])
+  if (scan.route === 'UNSUPPORTED' && scan.unsupportedReason && HARD_BLOCKS.has(scan.unsupportedReason)) {
     const reasonMessages: Record<string, string> = {
-      BORN_DIGITAL_UNTAGGED:
-        "has no structure tree, so alt text written into it wouldn\u2019t be reachable by a screen reader. It needs to be tagged (in Acrobat or an auto-tagger) before it can be remediated here.",
       FILE_TOO_LARGE: 'exceeds the 25 MB file size limit for processing.',
       TOO_MANY_PAGES: 'exceeds the 50 page limit for processing.',
-      INTERACTIVE_FORMS: 'contains interactive form fields which are not supported.',
-      DIGITALLY_SIGNED: 'has digital signatures that would be invalidated by modification.',
-      NON_ENGLISH_LANGUAGE: 'appears to contain non-English text which is not yet supported.',
-      CORRUPT_PDF: 'could not be read; the file may be corrupt.',
-      ENCRYPTED_PDF: 'is password-protected and cannot be processed.',
-      NO_PROCESSABLE_CONTENT: 'has no figures that need alt text.',
+      DIGITALLY_SIGNED: 'has digital signatures that would be invalidated by any modification.',
+      CORRUPT_PDF: 'could not be parsed; the file may be corrupt.',
+      ENCRYPTED_PDF: 'is password-protected. Remove the password and re-upload.',
     }
-    const reason = scan.unsupportedReason
-    const message = reason ? reasonMessages[reason] ?? 'cannot be processed.' : 'cannot be processed.'
-
+    const message = reasonMessages[scan.unsupportedReason] ?? 'cannot be processed.'
     return (
       <div className="panel scan-panel">
         <div className="panel__body panel__body--summary">
-          <Badge tone="alert" dot>
-            Cannot process
-          </Badge>
-          <p>
-            <strong>{doc.filename}</strong> {message}
-          </p>
+          <Badge tone="alert" dot>Cannot process</Badge>
+          <p><strong>{doc.filename}</strong> {message}</p>
         </div>
       </div>
     )
   }
 
-  // Tagged document with no issues
-  if (scan.figuresMissingAlt === 0) {
-    return (
-      <div className="panel scan-panel">
-        <div className="panel__body panel__body--summary">
-          <Badge tone="ok" dot>
-            Nothing to fix
-          </Badge>
-          <p>
-            <strong>{doc.filename}</strong> is tagged and every image already has alternative text.
-          </p>
-        </div>
-      </div>
-    )
-  }
+  // \u2500\u2500 Soft states: Ramp CAN still audit compliance, so encourage
+  //    the user to click Find Issues. This includes:
+  //      * UNSUPPORTED + NO_PROCESSABLE_CONTENT (tagged, no figures)
+  //      * UNSUPPORTED + BORN_DIGITAL_UNTAGGED (missing structure tree,
+  //         but our Tag PDF fixer can inject one)
+  //      * INTERACTIVE_FORMS / NON_ENGLISH_LANGUAGE (out of the alt-text
+  //         path but WCAG scan still surfaces structural findings)
+  //      * The normal ALT_TEXT_REMEDIATION route (figures need alt).
+  //      * The "no issues" case (tagged, all figures have alt).
+  const context =
+    scan.route === 'UNSUPPORTED' && scan.unsupportedReason === 'BORN_DIGITAL_UNTAGGED'
+      ? 'is missing its structure tree. Ramp can inject one for you as part of Modernization.'
+      : scan.route === 'UNSUPPORTED' && scan.unsupportedReason === 'NO_PROCESSABLE_CONTENT'
+        ? 'has no figures needing alt text. There may still be metadata, structural, or compliance issues to audit.'
+        : scan.route === 'UNSUPPORTED'
+          ? 'has been flagged as outside the normal remediation path, but Ramp can still audit its WCAG compliance.'
+          : scan.figuresMissingAlt > 0
+            ? `is tagged with ${scan.pageCount} page${scan.pageCount === 1 ? '' : 's'}. Found ${scan.figuresMissingAlt} figure${scan.figuresMissingAlt === 1 ? '' : 's'} missing alt text (plus any metadata or structural issues Ramp will surface).`
+            : `is tagged and every figure already has alt text. Ramp can still audit metadata, headings, tables, and other WCAG rules.`
 
-  // Tagged document with missing alt text (normal remediation path)
+  const tone: 'ok' | 'warn' = scan.figuresMissingAlt > 0 ? 'warn' : 'ok'
+  const badgeLabel =
+    scan.figuresMissingAlt > 0
+      ? `${scan.figuresMissingAlt} known issue${scan.figuresMissingAlt === 1 ? '' : 's'}`
+      : 'Ready to audit'
+
   return (
     <div className="panel scan-panel">
       <div className="panel__body panel__body--summary">
-        <Badge tone="warn" dot>
-          {scan.figuresMissingAlt} issue{scan.figuresMissingAlt === 1 ? '' : 's'} found
-        </Badge>
+        <Badge tone={tone} dot>{badgeLabel}</Badge>
         <p>
-          <strong>{doc.filename}</strong> is tagged with {scan.pageCount} page
-          {scan.pageCount === 1 ? '' : 's'}. Found <strong>{scan.figuresMissingAlt}</strong> image
-          {scan.figuresMissingAlt === 1 ? '' : 's'} missing alternative text. Click{' '}
-          <strong>Remediate</strong> to run the full remediation pass.
+          <strong>{doc.filename}</strong> {context}
+        </p>
+        <p style={{ marginTop: '.5rem', color: 'var(--ink-soft)', fontSize: '.9rem' }}>
+          Click <strong>Find Issues</strong> above to run the full WCAG 2.1 AA scan and see every
+          modernization / remediation / compliance finding.
         </p>
       </div>
     </div>

@@ -3,7 +3,10 @@ import { createPortal } from 'react-dom'
 import { Cross, Download } from './Icons'
 
 interface PdfPreviewModalProps {
+  /** URL for the inline iframe preview (Content-Disposition: inline). */
   url: string
+  /** Optional URL that forces a Save As dialog. Falls back to `url` if omitted. */
+  downloadUrl?: string
   filename: string
   onClose: () => void
 }
@@ -18,7 +21,7 @@ interface PdfPreviewModalProps {
  * that established a containing block (LibraryPage's .view section uses an
  * animation-derived transform, which would otherwise break position:fixed).
  */
-export function PdfPreviewModal({ url, filename, onClose }: PdfPreviewModalProps) {
+export function PdfPreviewModal({ url, downloadUrl, filename, onClose }: PdfPreviewModalProps) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
@@ -47,7 +50,7 @@ export function PdfPreviewModal({ url, filename, onClose }: PdfPreviewModalProps
           <div className="pdfmodal__actions">
             <a
               className="btn btn--ghost btn--sm"
-              href={url}
+              href={downloadUrl ?? url}
               download={filename}
               target="_blank"
               rel="noopener noreferrer"
