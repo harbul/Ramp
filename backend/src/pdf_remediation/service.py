@@ -116,11 +116,56 @@ class RemediationService:
         return self.storage.get_bytes(_original_key(doc_id, doc.filename))
 
     def replace_original_bytes(self, doc_id: str, pdf_bytes: bytes) -> None:
-        """Overwrite the stored PDF for a document (used by tag/modernize)."""
+        """Overwrite the stored PDF for a document (used by tag/modernize).
+
+        Also marks the document as fixed_by_ramp so the Review Queue's Fix
+        Issues state ("Issues Fixed ✓") flips on the parent row and the
+        "Fixed by Ramp" filter (future) picks up the clone.
+        """
         doc = self.get_document(doc_id)
         self.storage.put_bytes(
             _original_key(doc_id, doc.filename), pdf_bytes, "application/pdf"
         )
+        if not doc.fixed_by_ramp:
+            doc.fixed_by_ramp = True
+            doc.updated_at = utc_now()
+            self.jobs.put_document(doc)
+
+    def clone_document(self, doc_id: str) -> tuple[Document, DocScan]:
+        """Copy an existing document's bytes into a new doc_id so the
+        Workbench can apply fixes to the clone without mutating the original.
+
+        Used by the Review Queue's Fix Issues button: the parent row stays
+        byte-identical, and the clone (with parent_doc_id pointing back to
+        the parent) receives every apply()/modernize()/tag/labels write.
+        """
+        parent = self.get_document(doc_id)
+        data = self.get_original_bytes(doc_id)
+        # Add a "-fixed" suffix to disambiguate the filename in downloads.
+        stem = parent.filename[:-4] if parent.filename.lower().endswith(".pdf") else parent.filename
+        clone_filename = f"{stem}-fixed.pdf"
+        clone_id = str(uuid.uuid4())
+        scan = scan_bytes(data)
+        self.storage.put_bytes(
+            _original_key(clone_id, clone_filename), data, "application/pdf"
+        )
+        clone = Document(
+            doc_id=clone_id,
+            filename=clone_filename,
+            department=parent.department,
+            tag_status=scan.tag_status,
+            figures_missing_alt=scan.figures_missing_alt,
+            size_bytes=len(data),
+            updated_at=utc_now(),
+            route=scan.route,
+            unsupported_reason=scan.unsupported_reason,
+            is_scan_dominant=scan.is_scan_dominant,
+            triage=parent.triage,
+            parent_doc_id=parent.doc_id,
+            fixed_by_ramp=False,  # flips to True on first apply/modernize
+        )
+        self.jobs.put_document(clone)
+        return clone, scan
 
     def rescan_document(self, doc_id: str) -> tuple[Document, DocScan]:
         """Re-scan the currently stored bytes and persist updated tag_status.
@@ -374,6 +419,15 @@ class RemediationService:
             job.remediated_pdf_location = self.storage.put_bytes(
                 key, result.pdf_bytes, "application/pdf"
             )
+
+            # Overwrite the doc's original storage too so subsequent WCAG
+            # scans, downloads, and Workbench operations see the fixed bytes.
+            # Also flips fixed_by_ramp=True on the doc (see
+            # replace_original_bytes for the flag write).
+            try:
+                self.replace_original_bytes(job.doc_id, result.pdf_bytes)
+            except Exception:
+                log.warning("could not sync remediated bytes to original for %s", job.doc_id)
 
             applied_refs = {f.struct_elem_ref for f in result.applied}
             for issue in job.issues:

@@ -98,4 +98,6 @@ def document_from_dict(data: dict) -> Document:
         is_scan_dominant=data.get("is_scan_dominant", False),
         triage=triage,
         remediated_pdf_key=data.get("remediated_pdf_key"),
+        fixed_by_ramp=data.get("fixed_by_ramp", False),
+        parent_doc_id=data.get("parent_doc_id"),
     )

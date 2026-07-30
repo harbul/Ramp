@@ -484,6 +484,19 @@ def create_app(
             "scan": camelise(scan),
         }
 
+    @app.post("/pdf/documents/{doc_id}/clone", status_code=201)
+    def clone_document(doc_id: str):
+        """Copy an existing document into a new doc_id.
+
+        Used by the Review Queue's Fix Issues button so the Workbench can
+        apply fixes to a clone without mutating the parent row. The clone
+        carries ``parent_doc_id`` back to the original; the frontend hides
+        docs with a parent from the main Review Queue.
+        """
+        service = svc()
+        clone, scan = service.clone_document(doc_id)
+        return {"document": camelise(clone), "scan": camelise(scan)}
+
     @app.post("/pdf/documents/{doc_id}/infer-labels")
     def infer_labels(doc_id: str):
         """Infer form-field labels from field names and write them as /TU
