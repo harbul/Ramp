@@ -1798,9 +1798,45 @@ button, input, textarea { font: inherit; color: inherit; }
 
 .wbench-finding__title  { font-weight: 600; color: var(--ink); margin-bottom: .15rem; }
 .wbench-finding__desc   { color: var(--ink); font-size: .9rem; margin-bottom: .3rem; }
-.wbench-finding__loc    { color: var(--ink-soft); font-size: .85rem; }
+.wbench-finding__loc    { color: var(--ink-soft); font-size: .85rem; margin-bottom: .3rem; }
 .wbench-finding__loc strong { color: var(--ink); font-weight: 600; }
-.wbench-finding__sc     { font-size: .78rem; color: var(--ink-soft); letter-spacing: .02em; margin-top: .3rem; }
+.wbench-finding__rec {
+  background: var(--surface);
+  border-left: 3px solid var(--gold-deep);
+  padding: .55rem .75rem;
+  border-radius: 6px;
+  font-size: .88rem;
+  color: var(--ink);
+  margin-bottom: .4rem;
+  line-height: 1.5;
+}
+.wbench-finding__rec strong { color: var(--green); font-weight: 700; }
+.wbench-finding__sc     { font-size: .78rem; color: var(--ink-soft); letter-spacing: .02em; }
+.wbench-finding__meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  margin-top: .4rem;
+  flex-wrap: wrap;
+}
+.wbench-finding__meta-row .btn { flex-shrink: 0; gap: .3rem; }
+.wbench-finding__meta-row .btn svg { width: 12px; height: 12px; }
+
+.wbench-section__all-clear {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .6rem .85rem;
+  background: var(--ok-bg);
+  color: var(--ok-ink);
+  border: 1px solid var(--ok-line);
+  border-radius: 8px;
+  font-size: .9rem;
+  font-weight: 600;
+  margin: 0;
+}
+.wbench-section__all-clear svg { width: 16px; height: 16px; }
 
 .wbench-section__reviewer {
   margin-top: 1rem;
