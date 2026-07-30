@@ -97,6 +97,14 @@ interface IssueSectionCardProps {
   inlineReviewer?: React.ReactNode
   /** Force-open the details (used to expand a section mid-review). */
   forceOpen?: boolean
+  /** For Compliance-style sections: per-finding "Mark reviewed" callback.
+   *  Findings already reviewed are hidden from the failing list. */
+  onFindingReviewed?: (ruleId: string) => void
+  /** Set of ruleIds the user has already marked reviewed (Compliance flow). */
+  reviewedFindings?: Set<string>
+  /** Per-rule recommendation text: shown under the finding description as
+   *  "What to do." The dictionary is keyed by rule_id. */
+  recommendations?: Record<string, string>
 }
 
 const ICONS: Record<SectionKey, string> = {
@@ -108,8 +116,8 @@ const ICONS: Record<SectionKey, string> = {
 
 const APPLY_LABELS: Record<SectionKey, string> = {
   modernization: 'Apply all fixes',
-  remediation: 'Review & apply',
-  compliance: 'Manual review only',
+  remediation: 'Review',
+  compliance: 'Review',
   other: 'See details',
 }
 
@@ -119,14 +127,21 @@ export function IssueSectionCard({
   onApply,
   inlineReviewer,
   forceOpen,
+  onFindingReviewed,
+  reviewedFindings,
+  recommendations,
 }: IssueSectionCardProps) {
   const [open, setOpen] = useState(false)
   const isOpen = forceOpen || open
-  const failingCount = section.failing.length
+  // Filter out findings the reviewer has already marked done (Compliance flow).
+  const stillFailing = section.failing.filter(
+    (f) => !reviewedFindings?.has(f.ruleId),
+  )
+  const failingCount = stillFailing.length
   const totalCount = section.findings.length
   const noIssues = totalCount === 0
   const allPassing = totalCount > 0 && failingCount === 0
-  const canApply = !!onApply && failingCount > 0 && section.key !== 'compliance' && section.key !== 'other'
+  const canApply = !!onApply && failingCount > 0 && section.key !== 'other'
 
   // Tone drives the card color scheme.
   let tone: 'ok' | 'warn' | 'alert' | 'info' = 'info'
@@ -205,27 +220,51 @@ export function IssueSectionCard({
 
       {isOpen && (
         <div className="wbench-section__body">
-          <ul className="wbench-section__findings">
-            {section.failing.map((f) => (
-              <li key={f.ruleId} className={`wbench-finding wbench-finding--${f.severity.toLowerCase()}`}>
-                <span className="wbench-finding__badge" aria-hidden>
-                  {f.severity === 'BLOCKER' ? '✕' : f.severity === 'MAJOR' ? '!' : 'i'}
-                </span>
-                <div className="wbench-finding__text">
-                  <div className="wbench-finding__title">{f.title}</div>
-                  <div className="wbench-finding__desc">{f.description}</div>
-                  {f.location && (
-                    <div className="wbench-finding__loc">
-                      <strong>Where:</strong> {f.location}
+          {stillFailing.length > 0 && (
+            <ul className="wbench-section__findings">
+              {stillFailing.map((f) => (
+                <li key={f.ruleId} className={`wbench-finding wbench-finding--${f.severity.toLowerCase()}`}>
+                  <span className="wbench-finding__badge" aria-hidden>
+                    {f.severity === 'BLOCKER' ? '✕' : f.severity === 'MAJOR' ? '!' : 'i'}
+                  </span>
+                  <div className="wbench-finding__text">
+                    <div className="wbench-finding__title">{f.title}</div>
+                    <div className="wbench-finding__desc">{f.description}</div>
+                    {f.location && (
+                      <div className="wbench-finding__loc">
+                        <strong>Where:</strong> {f.location}
+                      </div>
+                    )}
+                    {recommendations?.[f.ruleId] && (
+                      <div className="wbench-finding__rec">
+                        <strong>What to do:</strong> {recommendations[f.ruleId]}
+                      </div>
+                    )}
+                    <div className="wbench-finding__meta-row">
+                      <span className="wbench-finding__sc">
+                        WCAG {f.wcagSc} · Level {f.wcagLevel}
+                      </span>
+                      {onFindingReviewed && (
+                        <button
+                          type="button"
+                          className="btn btn--ghost btn--sm"
+                          onClick={() => onFindingReviewed(f.ruleId)}
+                        >
+                          <Check /> Mark reviewed
+                        </button>
+                      )}
                     </div>
-                  )}
-                  <div className="wbench-finding__sc">
-                    WCAG {f.wcagSc} · Level {f.wcagLevel}
                   </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          )}
+          {stillFailing.length === 0 && reviewedFindings && reviewedFindings.size > 0 && (
+            <p className="wbench-section__all-clear">
+              <Check /> All {section.failing.length} finding{section.failing.length === 1 ? '' : 's'} reviewed.
+              Section will collapse into a success strip.
+            </p>
+          )}
           {inlineReviewer && <div className="wbench-section__reviewer">{inlineReviewer}</div>}
         </div>
       )}

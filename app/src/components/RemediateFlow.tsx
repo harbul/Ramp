@@ -78,6 +78,12 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
   // Per-section success trail — recap of what got applied. Once a section has
   // an entry here, its card renders as a success strip.
   const [sectionSuccess, setSectionSuccess] = useState<Record<string, string[]>>({})
+  // Whether Remediation is currently expanded with the inline reviewer.
+  const [remediationExpanded, setRemediationExpanded] = useState(false)
+  // Whether Compliance is expanded to show per-finding recommendations.
+  const [complianceExpanded, setComplianceExpanded] = useState(false)
+  // Compliance findings the reviewer has marked done (client-side only).
+  const [complianceReviewed, setComplianceReviewed] = useState<Set<string>>(new Set())
 
   const fileInput = useRef<HTMLInputElement>(null)
 
@@ -96,6 +102,9 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
     setFixingAction(null)
     setSectionBusy(null)
     setSectionSuccess({})
+    setRemediationExpanded(false)
+    setComplianceExpanded(false)
+    setComplianceReviewed(new Set())
     if (fileInput.current) fileInput.current.value = ''
   }
 
@@ -240,17 +249,18 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
   }
 
   /**
-   * Kick off the alt-text remediation job for the Remediation section. Lands
-   * on the 'review' phase, which unfolds the reviewer UI inline below the
-   * section card via `inlineReviewer` (see render below).
+   * "Review" (Remediation) — expand the section IN-PLACE with the AI's
+   * alt-text suggestions. Does NOT change the top-level phase, so the whole
+   * page stays on the sectioned Workbench layout; the reviewer appears
+   * inside the Remediation card's body via inlineReviewer.
    */
   async function startAltTextReview() {
     if (!doc) return
     setSectionBusy('remediation')
     setError(null)
+    setRemediationExpanded(true)
     try {
       const { job } = await api.createJob(doc.docId)
-      setPhase('analyzing')
       await api.analyze(job.jobId)
       const ready = await pollJob(job.jobId, (j) => j.status === 'NEEDS_REVIEW')
       setJob(ready)
@@ -259,13 +269,83 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
         initial[issue.issueId] = { altText: issue.suggestedAltText ?? '', rejected: false }
       }
       setReviews(initial)
-      setPhase('review')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err))
-      setPhase('uploaded')
+      setRemediationExpanded(false)
     } finally {
       setSectionBusy(null)
     }
+  }
+
+  /**
+   * Apply the reviewer's alt-text approvals + writes the PDF. On success,
+   * collapses the Remediation section into a SectionSuccess strip.
+   */
+  async function applyRemediation() {
+    if (!doc || !job) return
+    setSectionBusy('remediation')
+    setError(null)
+    try {
+      for (const issue of job.issues) {
+        const r = reviews[issue.issueId]
+        if (!r) continue
+        if (r.rejected || !r.altText.trim()) {
+          if (issue.suggestedAltText) await api.approve(job.jobId, issue.issueId, false)
+          continue
+        }
+        await api.approve(job.jobId, issue.issueId, true, r.altText.trim())
+      }
+      await api.apply(job.jobId)
+      const done = await pollJob(job.jobId, (j) => j.status === 'COMPLETE')
+      setJob(done)
+      const appliedCount = done.issues.filter((i) => i.status === 'APPLIED').length
+      setSectionSuccess((prev) => ({
+        ...prev,
+        remediation: [
+          `Wrote alt text to ${appliedCount} figure${appliedCount === 1 ? '' : 's'}`,
+          'Independently verified each write survived the PDF save',
+        ],
+      }))
+      setRemediationExpanded(false)
+      // Re-score so the header strip's delta reflects the fix.
+      try {
+        const report = await api.wcagCheckDocument(doc.docId)
+        setWcag(report)
+      } catch { /* noop */ }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : String(err))
+    } finally {
+      setSectionBusy(null)
+    }
+  }
+
+  /**
+   * Compliance flow: mark a manual-review finding as acknowledged. When all
+   * failing findings in the Compliance section are marked, the section
+   * collapses into a SectionSuccess strip.
+   */
+  function markComplianceReviewed(ruleId: string) {
+    setComplianceReviewed((prev) => {
+      const next = new Set(prev)
+      next.add(ruleId)
+      // If every failing Compliance finding is reviewed, mark section done.
+      if (wcag) {
+        const complianceSection = groupIntoSections(wcag).find((s) => s.key === 'compliance')
+        if (complianceSection) {
+          const unreviewed = complianceSection.failing.filter((f) => !next.has(f.ruleId))
+          if (unreviewed.length === 0) {
+            setSectionSuccess((prevSuccess) => ({
+              ...prevSuccess,
+              compliance: [
+                `Reviewed ${complianceSection.failing.length} compliance finding${complianceSection.failing.length === 1 ? '' : 's'}`,
+                'Manual remediation steps recorded — apply them in your PDF editor',
+              ],
+            }))
+          }
+        }
+      }
+      return next
+    })
   }
 
   async function startOcr() {
@@ -312,26 +392,7 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
     })
   }
 
-  async function applyFixes() {
-    if (!job) return
-    await run(async () => {
-      for (const issue of job.issues) {
-        const r = reviews[issue.issueId]
-        if (!r) continue
-        if (r.rejected || !r.altText.trim()) {
-          if (issue.suggestedAltText) await api.approve(job.jobId, issue.issueId, false)
-          continue
-        }
-        await api.approve(job.jobId, issue.issueId, true, r.altText.trim())
-      }
-      setPhase('applying')
-      await api.apply(job.jobId)
-      const done = await pollJob(job.jobId, (j) => j.status === 'COMPLETE')
-      setJob(done)
-      setPhase('done')
-    })
-  }
-
+  // Live-updating tallies for the inline Remediation reviewer.
   const suggestable = job?.issues.filter((i) => i.suggestedAltText) ?? []
   const approvedCount = suggestable.filter((i) => {
     const r = reviews[i.issueId]
@@ -340,6 +401,34 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
 
   const sections = wcag ? groupIntoSections(wcag) : []
   const downloadUrl = doc ? api.originalUrl(doc.docId) : null
+
+  // What to tell the reviewer to do about each manual/Compliance finding.
+  // Keyed by rule_id from core/wcag.py. These are demo-friendly, editor-agnostic
+  // instructions — the user reviews and marks each as done.
+  const COMPLIANCE_RECOMMENDATIONS: Record<string, string> = {
+    'WCAG-1.3.1-headings':
+      'Open the PDF in a tagged-PDF editor (Adobe Acrobat Pro > Accessibility) and promote the largest-font text blocks to H1, next-largest to H2, and so on. Ramp cannot infer heading levels safely on its own.',
+    'WCAG-1.3.1-heading-skip':
+      'Renumber headings so levels progress by one at a time (no H1 → H3 jumps). Screen readers rely on this to build the navigation outline.',
+    'WCAG-1.3.1-table-headers':
+      'In your PDF editor, select the first row of each data table and change its role from /TD to /TH. Set /Scope=Column so screen readers announce column headers with every cell.',
+    'WCAG-encoding-tounicode':
+      'Re-embed the flagged fonts with a proper /ToUnicode CMap. Most authoring tools (Word → PDF, LaTeX with the CJK package, InDesign) do this automatically when you re-export.',
+    'WCAG-2.4.5-bookmarks':
+      'Generate a bookmark outline from the document headings (Acrobat Pro > View > Show/Hide > Navigation Panes > Bookmarks > New Bookmarks From Structure).',
+    'WCAG-1.4.3-contrast':
+      'Verify text-to-background contrast (≥ 4.5:1 for normal text, 3:1 for large text) with a viewer that has a contrast tool — Adobe Acrobat Pro, PAC 2024, or NVDA with a color-contrast add-on.',
+  }
+
+  // The Modernization section may include a passing "figure alt" rule that
+  // classifies into Remediation but is passing — treat the whole section as
+  // done for the terminal-download state.
+  const applicableSections = sections.filter(
+    (s) => s.failing.length > 0 || sectionSuccess[s.key],
+  )
+  const allSectionsDone =
+    applicableSections.length > 0 &&
+    applicableSections.every((s) => sectionSuccess[s.key])
 
   return (
     <section className="view" aria-labelledby="flow-title">
@@ -431,89 +520,80 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
               if (success) {
                 return <SectionSuccess key={s.key} title={s.title} actions={success} />
               }
+              const inlineReviewer =
+                s.key === 'remediation' && remediationExpanded ? (
+                  <AltTextInlineReviewer
+                    job={job}
+                    reviews={reviews}
+                    approvedCount={approvedCount}
+                    suggestableCount={suggestable.length}
+                    busy={sectionBusy === 'remediation'}
+                    onReviewChange={(issueId, patch) =>
+                      setReviews((prev) => ({
+                        ...prev,
+                        [issueId]: {
+                          altText: '',
+                          rejected: false,
+                          ...prev[issueId],
+                          ...patch,
+                        },
+                      }))
+                    }
+                    onApply={applyRemediation}
+                  />
+                ) : undefined
               return (
                 <IssueSectionCard
                   key={s.key}
                   section={s}
                   busy={sectionBusy}
+                  forceOpen={
+                    (s.key === 'remediation' && remediationExpanded) ||
+                    (s.key === 'compliance' && complianceExpanded)
+                  }
+                  inlineReviewer={inlineReviewer}
                   onApply={
-                    s.key === 'modernization'
+                    s.key === 'modernization' && s.failing.length > 0
                       ? () => applyModernization()
                       : s.key === 'remediation' && s.failing.length > 0
                         ? () => startAltTextReview()
-                        : undefined
+                        : s.key === 'compliance' && s.failing.length > 0
+                          ? () => setComplianceExpanded(true)
+                          : undefined
                   }
+                  onFindingReviewed={s.key === 'compliance' ? markComplianceReviewed : undefined}
+                  reviewedFindings={s.key === 'compliance' ? complianceReviewed : undefined}
+                  recommendations={s.key === 'compliance' ? COMPLIANCE_RECOMMENDATIONS : undefined}
                 />
               )
             })}
           </>
         )}
 
-        {/* ── review the suggestions ──────────────────────────────── */}
-        {phase === 'review' && job && (
-          <>
-            <div className="issuebar">
-              <p className="issuebar__status" role="status">
-                {approvedCount} of {suggestable.length} approved
-              </p>
-              <div className="issuebar__actions">
-                <button
-                  type="button"
-                  className="btn btn--primary"
-                  onClick={applyFixes}
-                  disabled={busy || approvedCount === 0}
-                >
-                  Apply & Download
-                </button>
-              </div>
-            </div>
-
-            <ul className="issues">
-              {job.issues.map((issue, i) => (
-                <IssueRow
-                  key={issue.issueId}
-                  jobId={job.jobId}
-                  issue={issue}
-                  index={i + 1}
-                  review={reviews[issue.issueId]}
-                  onChange={(patch) =>
-                    setReviews((prev) => ({
-                      ...prev,
-                      [issue.issueId]: {
-                        altText: '',
-                        rejected: false,
-                        ...prev[issue.issueId],
-                        ...patch,
-                      },
-                    }))
-                  }
-                />
-              ))}
-            </ul>
-          </>
-        )}
-
-        {/* ── done ────────────────────────────────────────────────── */}
-        {phase === 'done' && job && (
+        {/* ── terminal Download panel ──────────────────────────────
+           When every applicable section has been marked done (via
+           SectionSuccess), promote the download to a large call to action.
+        */}
+        {allSectionsDone && downloadUrl && (
           <div className="panel done-panel">
             <div className="panel__body panel__body--summary">
               <span className="tick" aria-hidden="true">
                 <Check />
               </span>
               <h2 className="subhead" style={{ border: 0, textAlign: 'center' }}>
-                Remediation complete
+                All fixes applied
               </h2>
               <p style={{ textAlign: 'center', color: 'var(--ink-soft)' }}>
-                {job.issues.filter((i) => i.status === 'APPLIED').length} image(s) now have
-                alternative text a screen reader can read.
+                Every issue Ramp could act on has been resolved. The modernized PDF is ready to
+                download.
               </p>
               <div className="actions">
-                <a className="btn btn--primary btn--lg" href={api.downloadUrl(job.jobId)}>
+                <a className="btn btn--primary btn--lg" href={downloadUrl} download>
                   <Download />
-                  Download Remediated PDF
+                  Download modernized PDF
                 </a>
                 <button type="button" className="btn btn--ghost" onClick={reset}>
-                  Remediate another PDF
+                  Analyze another PDF
                 </button>
               </div>
             </div>
@@ -569,6 +649,70 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
         )}
       </div>
     </section>
+  )
+}
+
+/**
+ * The alt-text reviewer, unfolded inline inside the Remediation section card.
+ * A compressed version of the old page-level review UI: one row per figure
+ * with the image, editable alt text, and reject toggle; a single Apply button
+ * at the bottom writes every approval into the PDF.
+ */
+function AltTextInlineReviewer({
+  job,
+  reviews,
+  approvedCount,
+  suggestableCount,
+  busy,
+  onReviewChange,
+  onApply,
+}: {
+  job: ApiJob | null
+  reviews: Record<string, Review>
+  approvedCount: number
+  suggestableCount: number
+  busy: boolean
+  onReviewChange: (issueId: string, patch: Partial<Review>) => void
+  onApply: () => void
+}) {
+  if (!job) {
+    return (
+      <p className="flow-status" role="status">
+        <span className="spinner" aria-hidden="true" />
+        Analyzing the PDF and drafting alt text for each figure…
+      </p>
+    )
+  }
+  return (
+    <>
+      <div className="issuebar">
+        <p className="issuebar__status" role="status">
+          {approvedCount} of {suggestableCount} approved
+        </p>
+        <div className="issuebar__actions">
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={onApply}
+            disabled={busy || approvedCount === 0}
+          >
+            {busy ? 'Applying…' : 'Apply'}
+          </button>
+        </div>
+      </div>
+      <ul className="issues">
+        {job.issues.map((issue, i) => (
+          <IssueRow
+            key={issue.issueId}
+            jobId={job.jobId}
+            issue={issue}
+            index={i + 1}
+            review={reviews[issue.issueId]}
+            onChange={(patch) => onReviewChange(issue.issueId, patch)}
+          />
+        ))}
+      </ul>
+    </>
   )
 }
 
