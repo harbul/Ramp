@@ -76,3 +76,10 @@ export const UniversitySeal = ({ className }: IconProps) => (
     <path d="M14 19.5 h12 M20 13.5 v12" {...base} strokeWidth={1.5} />
   </svg>
 )
+
+export const Eye = ({ className }: IconProps) => (
+  <svg className={className} viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+    <path d="M1.5 10 C4 5.5 6.75 3.5 10 3.5 C13.25 3.5 16 5.5 18.5 10 C16 14.5 13.25 16.5 10 16.5 C6.75 16.5 4 14.5 1.5 10 Z" {...base} strokeWidth={1.5} />
+    <circle cx="10" cy="10" r="2.75" {...base} strokeWidth={1.5} />
+  </svg>
+)

@@ -133,10 +133,22 @@ button, input, textarea { font: inherit; color: inherit; }
 
 /* ── Shell ────────────────────────────────────────────────────── */
 .layout {
-  max-width: 1400px; margin: 0 auto; padding: 2.25rem 2rem 4rem;
-  display: grid; grid-template-columns: 250px 1fr; gap: 2.5rem; align-items: start;
+  max-width: min(1600px, 100%);
+  margin: 0 auto;
+  padding: 2.25rem clamp(1rem, 2vw, 2rem) 4rem;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
 }
-.wrap { max-width: 1400px; margin: 0 auto; padding: 1.5rem 2rem 4rem; }
+.wrap {
+  max-width: min(1600px, 100%);
+  margin: 0 auto;
+  padding: 1.5rem clamp(1rem, 2vw, 2rem) 4rem;
+}
+/* Grid items must be free to shrink; without min-width:0 a wide table locks
+   the whole column to its intrinsic width and blows out the viewport. */
+.layout > .content { min-width: 0; }
 
 .view { animation: rise .3s ease both; }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
@@ -295,19 +307,19 @@ button, input, textarea { font: inherit; color: inherit; }
   background: var(--surface); border: 1px solid var(--line);
   border-radius: 12px; overflow: hidden;
 }
-.table { width: 100%; border-collapse: collapse; }
+.table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .table caption { text-align: left; }
-/* Document name and Work items are the columns people actually read, so they
-   get the room; Department and Action are short labels and can be tight. */
-.table thead th:nth-child(1) { width: 30%; }   /* Form */
-.table thead th:nth-child(2) { width: 12%; }   /* Department */
-.table thead th:nth-child(3) { width: 10%; }   /* Action */
-.table thead th:nth-child(4) { width: 39%; }   /* Work */
-.table thead th:nth-child(5) { width: 9%; }    /* Status */
 
-/* Tighten the horizontal padding on the two narrow label columns. */
-.table thead th:nth-child(2), .table tbody td:nth-child(2),
-.table thead th:nth-child(3), .table tbody td:nth-child(3) {
+/* Queue table has 4 columns: Form (with inline eye) | Department | Action | Status.
+   Form gets the room since it holds the filename + preview button. */
+.queue thead th:nth-child(1) { width: auto; }         /* Form — flex */
+.queue thead th:nth-child(2) { width: 18%; }          /* Department */
+.queue thead th:nth-child(3) { width: 130px; }        /* Action badge */
+.queue thead th:nth-child(4) { width: 110px; }        /* Status button */
+
+/* Tighten the horizontal padding on the narrow columns. */
+.queue thead th:nth-child(3), .queue tbody td:nth-child(3),
+.queue thead th:nth-child(4), .queue tbody td:nth-child(4) {
   padding-left: .55rem; padding-right: .55rem;
 }
 .table thead th {
@@ -323,7 +335,7 @@ button, input, textarea { font: inherit; color: inherit; }
 .table tbody tr:hover { background: #fbfcfb; }
 .table td { padding: .5rem 1rem; vertical-align: middle; font-size: .9rem; }
 
-.doc { display: flex; align-items: center; gap: .6rem; }
+.doc { display: flex; align-items: center; gap: .6rem; min-width: 0; }
 .doc__icon {
   flex-shrink: 0; width: 24px; height: 30px; border-radius: 3px;
   background: var(--surface); border: 1.5px solid var(--line);
@@ -331,7 +343,13 @@ button, input, textarea { font: inherit; color: inherit; }
   display: grid; place-items: center;
   font-size: .42rem; font-weight: 800; letter-spacing: .04em; color: #b3261e;
 }
-.doc__name { font-weight: 600; line-height: 1.3; font-size: .9rem; }
+.doc__name {
+  font-weight: 600; line-height: 1.3; font-size: .9rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .doc__size { display: block; font-size: .78rem; color: var(--ink-soft); font-weight: 400; }
 .cell-dept { font-size: .92rem; }
 .cell-date { font-size: .9rem; color: var(--ink-soft); white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -1496,16 +1514,107 @@ button, input, textarea { font: inherit; color: inherit; }
 }
 .filterbar__multi-clear:hover { background: var(--alert-bg); }
 
-/* ── View button column ─────────────────────────────────────────── */
+/* ── Inline eye icon (PDF preview trigger) ──────────────────────── */
 
-.cell-view {
-  text-align: center;
-  width: 92px;
-  white-space: nowrap;
-}
-.cell-view__na {
+.doc__eye {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  margin-left: .5rem;
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--ink-soft);
-  cursor: help;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .12s ease, color .12s ease, border-color .12s ease;
+  flex-shrink: 0;
+}
+.doc__eye:hover {
+  background: var(--green-050);
+  color: var(--green);
+  border-color: var(--green);
+}
+.doc__eye:focus-visible {
+  outline: 2px solid var(--gold-deep);
+  outline-offset: 1px;
+}
+.doc__eye svg { width: 16px; height: 16px; }
+.doc__eye--disabled {
+  cursor: not-allowed;
+  color: var(--line);
+}
+.doc__eye--disabled:hover {
+  background: transparent;
+  color: var(--line);
+  border-color: transparent;
+}
+
+/* ── PDF preview modal ──────────────────────────────────────────── */
+
+.pdfmodal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(4, 57, 39, .55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(.75rem, 2vw, 2rem);
+  animation: pdfmodal-fade .15s ease both;
+}
+@keyframes pdfmodal-fade { from { opacity: 0; } }
+
+.pdfmodal__panel {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .35);
+  width: 100%;
+  max-width: 1100px;
+  height: 100%;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: pdfmodal-rise .2s cubic-bezier(.2,.9,.3,1) both;
+}
+@keyframes pdfmodal-rise { from { transform: translateY(12px); opacity: 0; } }
+
+.pdfmodal__header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: .85rem 1.15rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--green-050);
+}
+
+.pdfmodal__title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: .98rem;
+  color: var(--green);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pdfmodal__actions {
+  display: flex;
+  gap: .5rem;
+  flex-shrink: 0;
+}
+.pdfmodal__actions .btn { gap: .35rem; }
+.pdfmodal__actions .btn svg { width: 14px; height: 14px; }
+
+.pdfmodal__frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: #525659; /* Chrome PDF viewer's own dark chrome — matches the iframe */
 }
 
 /* ── Dashboard upload hint ──────────────────────────────────────── */
