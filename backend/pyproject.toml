@@ -1,0 +1,33 @@
+[project]
+name = "pdf-remediation"
+version = "0.1.0"
+description = "AI-powered PDF accessibility remediation (alt text) for Sacramento State"
+requires-python = ">=3.12"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q -m 'not live'"
+markers = [
+    "live: calls real AWS Bedrock (costs money). Run with: pytest -m live",
+    "integration: layout/accessibility verification tests requiring ONNX model",
+]
+
+[tool.ruff]
+line-length = 110
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# B008 flags function calls in argument defaults. That is exactly how FastAPI
+# declares File()/Form()/Depends() parameters — a false positive here, not a bug.
+"src/pdf_remediation/api/app.py" = ["B008"]

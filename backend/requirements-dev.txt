@@ -1,0 +1,13 @@
+-r requirements.txt
+
+pytest==8.4.2
+ruff==0.14.2
+python-dotenv==1.0.1    # local dev: load backend/.env into the environment
+
+# Phase 2 only, kept out of requirements.txt so the Lambda layer stays small.
+# boto3 is provided by the Lambda runtime; pin it here for local tests.
+boto3==1.40.49
+moto[s3,dynamodb]==5.1.22
+fastapi==0.121.2
+uvicorn==0.38.0
+httpx==0.28.1

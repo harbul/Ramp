@@ -1,0 +1,41 @@
+{
+  "source_pdf": "demo/sample_inaccessible.pdf",
+  "detector": "OnnxYoloLayoutDetector",
+  "confidence_threshold": 0.3,
+  "pages": [
+    {
+      "page_number": 1,
+      "page_width_pts": 612.0,
+      "page_height_pts": 792.0,
+      "figures": [
+        {
+          "bbox": [
+            152.68677034378052,
+            177.26281127929687,
+            482.3390602111817,
+            352.0139144897461
+          ],
+          "confidence": 0.9374,
+          "label": "Picture"
+        }
+      ]
+    },
+    {
+      "page_number": 2,
+      "page_width_pts": 612.0,
+      "page_height_pts": 792.0,
+      "figures": [
+        {
+          "bbox": [
+            153.89314298629762,
+            187.78856678009035,
+            465.8072696685791,
+            351.5394287109375
+          ],
+          "confidence": 0.9623,
+          "label": "Picture"
+        }
+      ]
+    }
+  ]
+}

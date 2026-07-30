@@ -1,0 +1,13 @@
+# ML dependencies for local layout detection (ONNX-based YOLOv10).
+# These are NOT required for the core OCR pipeline — only when
+# PDF_LAYOUT_DETECTOR=onnx_yolo is set.
+#
+# Install with:
+#   pip install -r requirements-ml.txt
+#
+# Licensing: onnxruntime is MIT, huggingface_hub is Apache-2.0.
+# The ONNX model weights (Oblix/yolov10m-doclaynet_ONNX) are from a
+# YOLOv10 model trained on DocLayNet (Apache-2.0 dataset).
+
+onnxruntime==1.27.0
+huggingface_hub>=0.20.0

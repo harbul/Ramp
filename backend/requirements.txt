@@ -1,0 +1,19 @@
+# Runtime dependencies (these ship in the Lambda layer).
+#
+# Licensing note: every library here is permissive (MPL-2.0 / MIT / BSD).
+# PyMuPDF is deliberately absent - it is AGPL-3.0 or a paid Artifex licence,
+# and its network clause would attach to a hosted campus service.
+
+pikepdf==10.10.0        # MPL-2.0. Structure-tree read/write - the only lib that can set /Alt.
+pdfplumber==0.11.9      # MIT. Page text extraction for LLM context.
+pypdf==6.14.2           # BSD. Page count / metadata.
+Pillow==12.1.0          # MIT-CMU. Image downscaling to Bedrock limits.
+
+# Bedrock. The Anthropic SDK's Bedrock client reaches current Claude vision
+# models; boto3's bedrock-runtime.converse() is the legacy surface and cannot.
+anthropic[bedrock]==0.116.0
+
+# API layer (Lambda uses the same routes via a handler adapter).
+fastapi==0.121.2
+python-multipart==0.0.20
+mangum==0.19.0          # FastAPI adapter for AWS Lambda
