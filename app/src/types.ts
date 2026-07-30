@@ -131,6 +131,8 @@ export interface FormInventoryItem {
   docId?: string
   /** Populated for live uploads; undefined for the static corpus (which is assumed tagged). */
   tagStatus?: 'TAGGED' | 'UNTAGGED' | 'TAGGED_NO_FIGURES'
+  /** External URL to the PDF (for DubBot-sampled campus PDFs) — used by the "View" button. */
+  sourceUrl?: string
 }
 
 export interface DashboardStats {
