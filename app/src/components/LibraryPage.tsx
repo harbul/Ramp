@@ -2,14 +2,21 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useInView } from '../lib/useInView'
 import { useMediaQuery } from '../lib/useMediaQuery'
 import type { FormAction, FormInventoryItem } from '../types'
+import { fetchFixedClones } from '../lib/inventory'
 import { isCorpusRemediable, remediableImageCount } from '../lib/corpusRemediable'
-import { Cross, Eye, Search } from './Icons'
+import { Check, Cross, Eye, Search } from './Icons'
 import { PdfPreviewModal } from './PdfPreviewModal'
 
 interface LibraryPageProps {
   forms: FormInventoryItem[]
   /** Open the alt-text flow for a listed form (remediates from the corpus bucket). */
   onRemediate?: (department: string, file: string) => void
+  /** Fix Issues button on a live-uploaded row: clones the backend doc and opens Workbench. */
+  onFixByDocId?: (docId: string, filename: string) => void
+  /** Fix Issues button on a DubBot row: fetches the source URL, uploads, opens Workbench. */
+  onFixByUrl?: (sourceUrl: string, filename: string, department: string) => void
+  /** Called after a fix lands so this page can refresh its cached inventory. */
+  onFixApplied?: () => void
 }
 
 type ReviewStatus = 'pending' | 'approved' | 'flagged'
@@ -66,6 +73,60 @@ function viewUrlFor(form: FormInventoryItem): string | null {
   return null
 }
 
+/**
+ * Fix Issues cell state per row:
+ *   - already fixed (a clone with fixed_by_ramp exists) → "Issues Fixed ✓" pill
+ *   - can be fixed (row has docId or sourceUrl) → primary "Fix Issues" button
+ *   - can't be fixed (curated ABA corpus row) → em-dash + tooltip
+ */
+function FixIssuesCell({
+  form,
+  fixed,
+  busy,
+  onFix,
+}: {
+  form: FormInventoryItem
+  fixed: boolean
+  busy: boolean
+  onFix: () => void
+}) {
+  const canFix = !!form.docId || !!form.sourceUrl
+  if (fixed) {
+    return (
+      <span
+        className="fix-cell fix-cell--fixed"
+        title="Ramp has applied fixes to a copy of this document. Click the Workbench tab to review or re-run."
+      >
+        <Check /> Issues Fixed
+      </span>
+    )
+  }
+  if (canFix) {
+    return (
+      <button
+        type="button"
+        className="btn btn--primary btn--sm fix-cell__btn"
+        onClick={(event) => {
+          event.stopPropagation()
+          onFix()
+        }}
+        disabled={busy}
+        title="Open this PDF in the Workbench with fixes ready to apply"
+      >
+        {busy ? 'Opening…' : 'Fix Issues'}
+      </button>
+    )
+  }
+  return (
+    <span
+      className="fix-cell fix-cell--na"
+      title="This corpus row has no source PDF Ramp can fetch offline."
+    >
+      —
+    </span>
+  )
+}
+
 function loadStatuses(): Record<string, ReviewStatus> {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
@@ -74,7 +135,12 @@ function loadStatuses(): Record<string, ReviewStatus> {
   }
 }
 
-export function LibraryPage({ forms, onRemediate }: LibraryPageProps) {
+export function LibraryPage({
+  forms,
+  onRemediate,
+  onFixByDocId,
+  onFixByUrl,
+}: LibraryPageProps) {
   const [query, setQuery] = useState('')
   const [actionFilter, setActionFilter] = useState<FormAction | 'all'>('all')
   const [tagFilter, setTagFilter] = useState<TagFilter>('all')
@@ -83,6 +149,18 @@ export function LibraryPage({ forms, onRemediate }: LibraryPageProps) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [statuses, setStatuses] = useState<Record<string, ReviewStatus>>(loadStatuses)
   const [previewing, setPreviewing] = useState<FormInventoryItem | null>(null)
+  // Which parent docIds have a fixed-by-Ramp clone in the backend (drives
+  // the "Issues Fixed ✓" state on the Fix Issues column). Refreshed on
+  // mount and after every fix.
+  const [fixedParents, setFixedParents] = useState<Set<string>>(new Set())
+  // Which rows are currently being sent to the Workbench (spinner state).
+  const [fixingKey, setFixingKey] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchFixedClones().then((clones) => {
+      setFixedParents(new Set(clones.filter((c) => c.fixedByRamp).map((c) => c.parentDocId)))
+    })
+  }, [forms])
 
   const table = useInView<HTMLDivElement>()
 
@@ -435,6 +513,7 @@ export function LibraryPage({ forms, onRemediate }: LibraryPageProps) {
                   <th scope="col">Form</th>
                   <th scope="col">Department</th>
                   <th scope="col">Action</th>
+                  <th scope="col" className="cell-fix">Fix Issues</th>
                   <th scope="col">Status</th>
                 </tr>
               </thead>
@@ -496,6 +575,22 @@ export function LibraryPage({ forms, onRemediate }: LibraryPageProps) {
                         <td data-label="Action">
                           <span className={`StatusBadge StatusBadge--${meta.color}`}>{meta.label}</span>
                         </td>
+                        <td className="cell-fix" data-label="Fix Issues">
+                          <FixIssuesCell
+                            form={form}
+                            fixed={!!form.docId && fixedParents.has(form.docId)}
+                            busy={fixingKey === id}
+                            onFix={() => {
+                              if (form.docId && onFixByDocId) {
+                                setFixingKey(id)
+                                onFixByDocId(form.docId, form.file)
+                              } else if (form.sourceUrl && onFixByUrl) {
+                                setFixingKey(id)
+                                onFixByUrl(form.sourceUrl, form.file, form.department)
+                              }
+                            }}
+                          />
+                        </td>
                         <td data-label="Status">
                           <button
                             type="button"
@@ -513,7 +608,7 @@ export function LibraryPage({ forms, onRemediate }: LibraryPageProps) {
 
                       {isOpen && (
                         <tr className="queue__detail">
-                          <td colSpan={4}>
+                          <td colSpan={5}>
                             <div className="queue-detail">
                               <h4>Why</h4>
                               <p>{form.rationale}</p>

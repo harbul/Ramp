@@ -63,18 +63,38 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [view])
 
-  // When set, the Remediate view pulls this form from the corpus bucket instead
-  // of waiting for an upload. Cleared when the Remediate tab is opened directly.
-  const [remediateRef, setRemediateRef] = useState<{ department: string; file: string } | null>(null)
+  // How the Workbench should populate itself when the user lands there:
+  //  - `corpus`      : pull the PDF from the corpus bucket (Review Queue Remediate button)
+  //  - `docId`       : clone this backend doc so fixes hit the clone, not the parent
+  //  - `sourceUrl`   : fetch this external URL, upload to backend, then Workbench uses it
+  //  - null          : plain upload flow, prompt the reviewer to pick a file
+  type WorkbenchTarget =
+    | { kind: 'corpus'; department: string; file: string }
+    | { kind: 'docId'; docId: string; filename: string }
+    | { kind: 'sourceUrl'; sourceUrl: string; filename: string; department: string }
+    | null
+  const [workbenchTarget, setWorkbenchTarget] = useState<WorkbenchTarget>(null)
 
   const goToLibrary = useCallback(() => setView('library'), [])
   const goToDashboard = useCallback(() => setView('dashboard'), [])
   const goToRemediate = useCallback(() => {
-    setRemediateRef(null)
+    setWorkbenchTarget(null)
     setView('remediate')
   }, [])
   const remediateForm = useCallback((department: string, file: string) => {
-    setRemediateRef({ department, file })
+    setWorkbenchTarget({ kind: 'corpus', department, file })
+    setView('remediate')
+  }, [])
+  // "Fix Issues" from Review Queue: clone the backend doc so the fix runs on a
+  // copy and the parent row stays byte-identical.
+  const fixByDocId = useCallback((docId: string, filename: string) => {
+    setWorkbenchTarget({ kind: 'docId', docId, filename })
+    setView('remediate')
+  }, [])
+  // "Fix Issues" for a DubBot row: hand the source URL to the Workbench which
+  // fetches + uploads + then treats it as a normal working doc.
+  const fixByUrl = useCallback((sourceUrl: string, filename: string, department: string) => {
+    setWorkbenchTarget({ kind: 'sourceUrl', sourceUrl, filename, department })
     setView('remediate')
   }, [])
 
@@ -93,8 +113,18 @@ export default function App() {
 
       <main id="main" ref={mainRef} tabIndex={-1}>
         {view === 'dashboard' && <DashboardPage forms={forms} onUploaded={refreshUploaded} />}
-        {view === 'library' && <LibraryPage forms={forms} onRemediate={remediateForm} />}
-        {view === 'remediate' && <RemediateFlow corpusRef={remediateRef} />}
+        {view === 'library' && (
+          <LibraryPage
+            forms={forms}
+            onRemediate={remediateForm}
+            onFixByDocId={fixByDocId}
+            onFixByUrl={fixByUrl}
+            onFixApplied={refreshUploaded}
+          />
+        )}
+        {view === 'remediate' && (
+          <RemediateFlow target={workbenchTarget} onFixApplied={refreshUploaded} />
+        )}
       </main>
 
       <footer className="footer">

@@ -310,18 +310,41 @@ button, input, textarea { font: inherit; color: inherit; }
 .table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .table caption { text-align: left; }
 
-/* Queue table has 4 columns: Form (with inline eye) | Department | Action | Status.
+/* Queue table has 5 columns:
+   Form (with inline eye) | Department | Action | Fix Issues | Status.
    Form gets the room since it holds the filename + preview button. */
 .queue thead th:nth-child(1) { width: auto; }         /* Form — flex */
-.queue thead th:nth-child(2) { width: 18%; }          /* Department */
-.queue thead th:nth-child(3) { width: 130px; }        /* Action badge */
-.queue thead th:nth-child(4) { width: 110px; }        /* Status button */
+.queue thead th:nth-child(2) { width: 16%; }          /* Department */
+.queue thead th:nth-child(3) { width: 120px; }        /* Action badge */
+.queue thead th:nth-child(4) { width: 150px; }        /* Fix Issues button */
+.queue thead th:nth-child(5) { width: 110px; }        /* Status button */
 
 /* Tighten the horizontal padding on the narrow columns. */
 .queue thead th:nth-child(3), .queue tbody td:nth-child(3),
-.queue thead th:nth-child(4), .queue tbody td:nth-child(4) {
+.queue thead th:nth-child(4), .queue tbody td:nth-child(4),
+.queue thead th:nth-child(5), .queue tbody td:nth-child(5) {
   padding-left: .55rem; padding-right: .55rem;
 }
+
+/* Fix Issues cell — three states: primary button, "Issues Fixed" pill, N/A dash. */
+.cell-fix { text-align: center; white-space: nowrap; }
+.fix-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: .82rem;
+  font-weight: 600;
+}
+.fix-cell__btn { padding: .35rem .75rem; }
+.fix-cell--fixed {
+  padding: .25rem .6rem;
+  background: var(--ok-bg);
+  color: var(--ok-ink);
+  border: 1px solid var(--ok-line);
+  border-radius: 999px;
+}
+.fix-cell--fixed svg { width: 14px; height: 14px; }
+.fix-cell--na { color: var(--ink-soft); cursor: help; }
 .table thead th {
   text-align: left; font-size: .72rem; font-weight: 700; letter-spacing: .08em;
   text-transform: uppercase; color: var(--green);
