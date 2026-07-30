@@ -3,7 +3,8 @@ import { useInView } from '../lib/useInView'
 import { useMediaQuery } from '../lib/useMediaQuery'
 import type { FormAction, FormInventoryItem } from '../types'
 import { isCorpusRemediable, remediableImageCount } from '../lib/corpusRemediable'
-import { Cross, Search } from './Icons'
+import { Cross, Eye, Search } from './Icons'
+import { PdfPreviewModal } from './PdfPreviewModal'
 
 interface LibraryPageProps {
   forms: FormInventoryItem[]
@@ -81,6 +82,7 @@ export function LibraryPage({ forms, onRemediate }: LibraryPageProps) {
   const [departments, setDepartments] = useState<ReadonlySet<string>>(new Set())
   const [openId, setOpenId] = useState<string | null>(null)
   const [statuses, setStatuses] = useState<Record<string, ReviewStatus>>(loadStatuses)
+  const [previewing, setPreviewing] = useState<FormInventoryItem | null>(null)
 
   const table = useInView<HTMLDivElement>()
 
@@ -433,7 +435,6 @@ export function LibraryPage({ forms, onRemediate }: LibraryPageProps) {
                   <th scope="col">Form</th>
                   <th scope="col">Department</th>
                   <th scope="col">Action</th>
-                  <th scope="col" className="cell-view">View</th>
                   <th scope="col">Status</th>
                 </tr>
               </thead>
@@ -465,6 +466,28 @@ export function LibraryPage({ forms, onRemediate }: LibraryPageProps) {
                               PDF
                             </span>
                             <span className="doc__name">{form.file}</span>
+                            {viewUrlFor(form) ? (
+                              <button
+                                type="button"
+                                className="doc__eye"
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  setPreviewing(form)
+                                }}
+                                aria-label={`Preview ${form.file} in a modal`}
+                                title="Preview PDF"
+                              >
+                                <Eye />
+                              </button>
+                            ) : (
+                              <span
+                                className="doc__eye doc__eye--disabled"
+                                aria-hidden="true"
+                                title="Preview isn't available for corpus rows in the demo."
+                              >
+                                <Eye />
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="cell-dept" data-label="Department">
@@ -472,27 +495,6 @@ export function LibraryPage({ forms, onRemediate }: LibraryPageProps) {
                         </td>
                         <td data-label="Action">
                           <span className={`StatusBadge StatusBadge--${meta.color}`}>{meta.label}</span>
-                        </td>
-                        <td className="cell-view" data-label="View">
-                          {viewUrlFor(form) ? (
-                            <a
-                              className="btn btn--ghost btn--sm"
-                              href={viewUrlFor(form)!}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(event) => event.stopPropagation()}
-                              aria-label={`Open ${form.file} in a new tab`}
-                            >
-                              View
-                            </a>
-                          ) : (
-                            <span
-                              className="cell-view__na"
-                              title="This form's PDF isn't available in the demo (corpus rows are placeholders)."
-                            >
-                              —
-                            </span>
-                          )}
                         </td>
                         <td data-label="Status">
                           <button
@@ -511,7 +513,7 @@ export function LibraryPage({ forms, onRemediate }: LibraryPageProps) {
 
                       {isOpen && (
                         <tr className="queue__detail">
-                          <td colSpan={5}>
+                          <td colSpan={4}>
                             <div className="queue-detail">
                               <h4>Why</h4>
                               <p>{form.rationale}</p>
@@ -593,6 +595,14 @@ export function LibraryPage({ forms, onRemediate }: LibraryPageProps) {
           </div>
         </div>
       </div>
+
+      {previewing && viewUrlFor(previewing) && (
+        <PdfPreviewModal
+          url={viewUrlFor(previewing)!}
+          filename={previewing.file}
+          onClose={() => setPreviewing(null)}
+        />
+      )}
     </section>
   )
 }
