@@ -727,17 +727,17 @@ function ScanSummary({
   onStartOcr: () => void
   busy: boolean
 }) {
-  // \u2500\u2500 OCR-eligible scanned document \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ── OCR-eligible scanned document ─────────────────────────────
   if (scan.route === 'OCR_RECONSTRUCTION') {
     return (
       <div className="panel scan-panel">
         <div className="panel__body panel__body--summary">
           <Badge tone="warn" dot>
-            Scanned document \u2014 different pipeline
+            Scanned document — different pipeline
           </Badge>
           <p>
             <strong>{doc.filename}</strong> is a scanned (bitmap) PDF with {scan.pageCount} page
-            {scan.pageCount === 1 ? '' : 's'} and no real text layer \u2014 the pages are just images
+            {scan.pageCount === 1 ? '' : 's'} and no real text layer — the pages are just images
             of paper.
           </p>
           <p style={{ marginTop: '.4rem' }}>
@@ -750,7 +750,7 @@ function ScanSummary({
           <p style={{ marginTop: '.4rem', color: 'var(--ink-soft)', fontSize: '.9rem' }}>
             You'd use <em>Find Issues</em> for a digital PDF that just needs metadata / tags / alt
             text patched. You use <em>Reconstruct with OCR</em> when the PDF has no real text
-            underneath \u2014 there's nothing to patch, so the whole document is rebuilt.
+            underneath — there's nothing to patch, so the whole document is rebuilt.
           </p>
           <div className="actions" style={{ marginTop: '1rem' }}>
             <button
@@ -767,7 +767,7 @@ function ScanSummary({
     )
   }
 
-  // \u2500\u2500 Hard-block reasons: truly nothing we can do \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ── Hard-block reasons: truly nothing we can do ───────────────
   // For these, clicking Find Issues would still produce a WCAG report, but the
   // reviewer really can't proceed until the underlying issue is resolved.
   const HARD_BLOCKS = new Set([
@@ -796,7 +796,7 @@ function ScanSummary({
     )
   }
 
-  // \u2500\u2500 Soft states: Ramp CAN still audit compliance, so encourage
+  // ── Soft states: Ramp CAN still audit compliance, so encourage
   //    the user to click Find Issues. This includes:
   //      * UNSUPPORTED + NO_PROCESSABLE_CONTENT (tagged, no figures)
   //      * UNSUPPORTED + BORN_DIGITAL_UNTAGGED (missing structure tree,
