@@ -599,6 +599,11 @@ export function LibraryPage({ forms, onRemediate }: LibraryPageProps) {
       {previewing && viewUrlFor(previewing) && (
         <PdfPreviewModal
           url={viewUrlFor(previewing)!}
+          downloadUrl={
+            previewing.docId
+              ? `/pdf/documents/${previewing.docId}/original.pdf?download=1`
+              : undefined
+          }
           filename={previewing.file}
           onClose={() => setPreviewing(null)}
         />

@@ -509,19 +509,23 @@ def create_app(
         }
 
     @app.get("/pdf/documents/{doc_id}/original.pdf")
-    def download_original(doc_id: str):
+    def download_original(doc_id: str, download: int = 0):
         """Stream the current stored bytes for a document (post-fix if fixed).
 
-        Useful after ``/tag`` or ``/modernize`` so the UI can serve the
-        repaired version for preview or download.
+        Default disposition is ``inline`` so the browser's PDF viewer can
+        render the file inside an iframe (used by the Review Queue preview
+        modal). Pass ``?download=1`` to force ``attachment`` for a "Save As"
+        prompt (used by the modal's Download button and the terminal
+        Download panel).
         """
         service = svc()
         doc = service.get_document(doc_id)
         data = service.get_original_bytes(doc_id)
+        disposition = "attachment" if download else "inline"
         return Response(
             content=data,
             media_type="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="{doc.filename}"'},
+            headers={"Content-Disposition": f'{disposition}; filename="{doc.filename}"'},
         )
 
     @app.get("/health")

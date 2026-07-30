@@ -297,8 +297,14 @@ export const api = {
     return unwrap(await fetch(`/pdf/documents/${docId}/infer-labels`, { method: 'POST' }))
   },
 
+  /** URL for inline preview in an <iframe> (Content-Disposition: inline). */
   originalUrl(docId: string): string {
     return `/pdf/documents/${docId}/original.pdf`
+  },
+
+  /** URL that forces a browser Save As dialog (Content-Disposition: attachment). */
+  originalDownloadUrl(docId: string): string {
+    return `/pdf/documents/${docId}/original.pdf?download=1`
   },
 }
 
