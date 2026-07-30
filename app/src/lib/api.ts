@@ -306,6 +306,12 @@ export const api = {
   originalDownloadUrl(docId: string): string {
     return `/pdf/documents/${docId}/original.pdf?download=1`
   },
+
+  /** Copy an existing doc into a new doc_id so the Workbench can apply fixes
+   *  to the clone without mutating the original row. */
+  async cloneDocument(docId: string): Promise<{ document: ApiDocument; scan: ApiScan }> {
+    return unwrap(await fetch(`/pdf/documents/${docId}/clone`, { method: 'POST' }))
+  },
 }
 
 /** Poll a job until it reaches a terminal status for the current phase. */

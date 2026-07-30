@@ -188,6 +188,15 @@ class Document:
     triage: TriageInfo | None = None
     # S3 key / location of the remediated PDF, when one was produced.
     remediated_pdf_key: str | None = None
+    # True once Ramp has applied at least one fix (tag/modernize/labels/alt).
+    # Used by the Review Queue's "Fixed by Ramp" filter and by the Fix Issues
+    # button state ("Issues Fixed ✓" once true on a clone).
+    fixed_by_ramp: bool = False
+    # If this doc was created by /pdf/documents/{id}/clone, points to the
+    # original doc_id it was cloned from. None for uploads and corpus ingests.
+    # The frontend hides docs with a parent_doc_id from the main Review Queue
+    # so clones don't clutter the list.
+    parent_doc_id: str | None = None
 
 
 @dataclass

@@ -7,7 +7,7 @@ import type { FormAction, FormInventoryItem } from '../types'
  * without it fall back to the thin fields.
  */
 function toInventoryItem(doc: any): FormInventoryItem {
-  const t = doc.triage
+  const t = doc.triage ?? {}
   return {
     file: doc.filename,
     department: doc.department || 'Uploaded',
@@ -25,6 +25,8 @@ function toInventoryItem(doc: any): FormInventoryItem {
     signals: t.signals ?? [],
     docId: doc.docId,
     tagStatus: doc.tagStatus,
+    fixedByRamp: !!doc.fixedByRamp,
+    parentDocId: doc.parentDocId ?? undefined,
   }
 }
 
@@ -32,17 +34,41 @@ function toInventoryItem(doc: any): FormInventoryItem {
  * Fetches the persisted uploads from the backend. Returns an empty list if the
  * backend is unreachable, so the static corpus still renders.
  *
- * Only documents carrying triage metadata (genuine Dashboard uploads) are
- * surfaced as inventory rows. Documents without it are remediation working
- * copies (corpus ingests from the Review Queue, direct uploads via the
- * Remediate tab) that would otherwise show as blank "Why / Work" rows.
+ * Filters:
+ *  - documents without triage metadata are remediation working copies
+ *    (corpus ingests, direct Workbench uploads) — they'd render as blank
+ *    "Why / Work" rows so we hide them.
+ *  - documents with a parentDocId are clones created by /clone (the Fix
+ *    Issues flow). They're kept in the backend for downloads + a future
+ *    "Fixed by Ramp" filter, but hidden from the main Review Queue.
  */
 export async function fetchUploadedForms(): Promise<FormInventoryItem[]> {
   try {
     const response = await fetch('/pdf/documents')
     if (!response.ok) return []
     const data = await response.json()
-    return (data.documents ?? []).filter((doc: any) => doc.triage).map(toInventoryItem)
+    return (data.documents ?? [])
+      .filter((doc: any) => doc.triage && !doc.parentDocId)
+      .map(toInventoryItem)
+  } catch {
+    return []
+  }
+}
+
+/** Fetch just the "fixed by Ramp" clones (docs with a parent). Used by the
+ *  Review Queue to mark a parent row as "Issues Fixed" when a clone exists. */
+export async function fetchFixedClones(): Promise<{ docId: string; parentDocId: string; fixedByRamp: boolean }[]> {
+  try {
+    const response = await fetch('/pdf/documents')
+    if (!response.ok) return []
+    const data = await response.json()
+    return (data.documents ?? [])
+      .filter((doc: any) => doc.parentDocId)
+      .map((doc: any) => ({
+        docId: doc.docId,
+        parentDocId: doc.parentDocId,
+        fixedByRamp: !!doc.fixedByRamp,
+      }))
   } catch {
     return []
   }

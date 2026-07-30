@@ -52,13 +52,21 @@ interface OcrImageReview {
   approved: boolean
 }
 
-/** When opened from the Review Queue, the form to remediate straight from the
- * corpus bucket (no upload). Null/undefined means the plain upload flow. */
+/** How the Workbench should populate itself when the user lands here. */
+type WorkbenchTarget =
+  | { kind: 'corpus'; department: string; file: string }
+  | { kind: 'docId'; docId: string; filename: string }
+  | { kind: 'sourceUrl'; sourceUrl: string; filename: string; department: string }
+  | null
+
 interface RemediateFlowProps {
-  corpusRef?: { department: string; file: string } | null
+  target?: WorkbenchTarget
+  /** Called after a fix is applied so the caller can refresh its cached
+   *  inventory (e.g. flip the Review Queue's Fix Issues button). */
+  onFixApplied?: () => void
 }
 
-export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
+export function RemediateFlow({ target = null, onFixApplied }: RemediateFlowProps) {
   const [phase, setPhase] = useState<Phase>('idle')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -136,21 +144,38 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
     })
   }
 
-  // Arriving from the Review Queue: pull the form from the corpus bucket and
-  // land on the same scan summary an upload produces. A new corpusRef object
-  // (one per row click) re-runs this; the plain Remediate tab passes null.
+  // Arriving from the Review Queue with a target: load the right doc into
+  // the Workbench. Three shapes:
+  //   corpus    — ingest from the DXHub corpus bucket
+  //   docId     — clone an existing backend doc so the parent row stays
+  //               byte-identical; the clone is the working copy
+  //   sourceUrl — fetch a public campus URL (DubBot rows) and upload it as
+  //               a fresh backend doc, then treat it as the working copy
   useEffect(() => {
-    if (!corpusRef) return
+    if (!target) return
     let cancelled = false
     reset()
     setBusy(true)
-    api.ingestFromCorpus(corpusRef.department, corpusRef.file)
+    const load = async () => {
+      if (target.kind === 'corpus') {
+        return api.ingestFromCorpus(target.department, target.file)
+      }
+      if (target.kind === 'docId') {
+        return api.cloneDocument(target.docId)
+      }
+      // sourceUrl: pull bytes from the campus URL, then upload as a new doc.
+      const res = await fetch(target.sourceUrl)
+      if (!res.ok) throw new ApiError(`Fetch ${target.sourceUrl} → ${res.status}`, 'FETCH_FAILED', res.status)
+      const blob = await res.blob()
+      const file = new File([blob], target.filename, { type: 'application/pdf' })
+      return api.uploadDocument(file, target.department)
+    }
+    load()
       .then(({ document, scan }) => {
         if (cancelled) return
         setDoc(document)
         setScan(scan)
         setPhase('uploaded')
-        // Corpus ingest lands on the same "Click Find Issues" state as upload.
       })
       .catch((err) => {
         if (cancelled) return
@@ -163,7 +188,7 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [corpusRef])
+  }, [target])
 
   /**
    * "Find Issues" — the analysis step. Runs the WCAG 2.1 AA scan on the
@@ -230,6 +255,9 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
       } catch { /* noop */ }
       if (trail.length === 0) trail.push('Already modernized — nothing to do.')
       setSectionSuccess((prev) => ({ ...prev, modernization: trail }))
+      // Signal the Review Queue that this doc's fixed_by_ramp flag flipped
+      // so its "Fix Issues" button can update to "Issues Fixed ✓".
+      onFixApplied?.()
     } finally {
       setSectionBusy(null)
     }
@@ -312,6 +340,8 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
         const report = await api.wcagCheckDocument(doc.docId)
         setWcag(report)
       } catch { /* noop */ }
+      // Tell the Review Queue to refresh the parent row's Fix state.
+      onFixApplied?.()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : String(err))
     } finally {

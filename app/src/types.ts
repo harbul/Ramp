@@ -133,6 +133,12 @@ export interface FormInventoryItem {
   tagStatus?: 'TAGGED' | 'UNTAGGED' | 'TAGGED_NO_FIGURES'
   /** External URL to the PDF (for DubBot-sampled campus PDFs) — used by the "View" button. */
   sourceUrl?: string
+  /** True once Ramp has applied at least one fix; drives the Review Queue's
+   *  "Issues Fixed ✓" state on the parent row. */
+  fixedByRamp?: boolean
+  /** For clones created by /clone: the doc_id of the original row this was
+   *  cloned from. Rows with a parent_doc_id are hidden from the main queue. */
+  parentDocId?: string
 }
 
 export interface DashboardStats {
