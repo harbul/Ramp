@@ -24,7 +24,8 @@ import {
 } from '../lib/api'
 import { Badge } from './Badge'
 import { Check, Download, Search } from './Icons'
-import { WcagScorecard } from './WcagScorecard'
+import { WcagHeaderStrip, IssueSectionCard, SectionSuccess } from './WorkbenchLayout'
+import { groupIntoSections, type SectionKey } from '../lib/wcagSections'
 
 const ALT_LIMIT = 125
 
@@ -68,11 +69,15 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
   const [reviews, setReviews] = useState<Record<string, Review>>({})
   const [ocrPreview, setOcrPreview] = useState<ApiOcrPreview | null>(null)
   const [ocrImageReviews, setOcrImageReviews] = useState<Record<string, OcrImageReview>>({})
-  // WCAG scorecard state — populated from /pdf/documents/{id}/wcag
+  // WCAG scorecard state — populated by "Find Issues" (POST /wcag/check)
   const [wcag, setWcag] = useState<WcagReport | null>(null)
   const [wcagBefore, setWcagBefore] = useState<number | null>(null)
   const [fixingAction, setFixingAction] = useState<string | null>(null)
-  const [modernizeActions, setModernizeActions] = useState<string[] | null>(null)
+  // Which section is currently applying its fixes.
+  const [sectionBusy, setSectionBusy] = useState<SectionKey | null>(null)
+  // Per-section success trail — recap of what got applied. Once a section has
+  // an entry here, its card renders as a success strip.
+  const [sectionSuccess, setSectionSuccess] = useState<Record<string, string[]>>({})
 
   const fileInput = useRef<HTMLInputElement>(null)
 
@@ -89,90 +94,9 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
     setWcag(null)
     setWcagBefore(null)
     setFixingAction(null)
-    setModernizeActions(null)
+    setSectionBusy(null)
+    setSectionSuccess({})
     if (fileInput.current) fileInput.current.value = ''
-  }
-
-  async function loadWcag(docId: string) {
-    try {
-      const report = await api.wcagCheckDocument(docId)
-      setWcag(report)
-      return report
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err))
-      return null
-    }
-  }
-
-  async function tagPdf() {
-    if (!doc) return
-    setFixingAction('tag_pdf')
-    setError(null)
-    try {
-      const { scan: newScan } = await api.tagDocument(doc.docId)
-      setScan(newScan)
-      const before = wcag?.score ?? null
-      const report = await api.wcagCheckDocument(doc.docId)
-      setWcag(report)
-      if (before !== null) setWcagBefore(before)
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err))
-    } finally {
-      setFixingAction(null)
-    }
-  }
-
-  async function modernizePdf() {
-    if (!doc) return
-    setFixingAction('modernize')
-    setError(null)
-    try {
-      const result = await api.modernizeDocument(doc.docId)
-      setScan(result.scan)
-      setWcag(result.after)
-      setWcagBefore(result.before.score)
-      setModernizeActions(result.actions)
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err))
-    } finally {
-      setFixingAction(null)
-    }
-  }
-
-  async function inferLabels() {
-    if (!doc) return
-    setFixingAction('infer_labels')
-    setError(null)
-    try {
-      const result = await api.inferLabels(doc.docId)
-      const before = wcag?.score ?? null
-      const report = await api.wcagCheckDocument(doc.docId)
-      setWcag(report)
-      if (before !== null) setWcagBefore(before)
-      // Reuse the modernize-recap surface to show which labels were written
-      if (result.labelsWritten > 0) {
-        setModernizeActions(
-          result.writes.map(
-            (w) => `Set /TU label on field '${w.fieldName}' → '${w.inferredLabel}' (${w.confidence})`,
-          ),
-        )
-      } else {
-        setModernizeActions(['No unlabelled AcroForm fields were found on this document.'])
-      }
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : String(err))
-    } finally {
-      setFixingAction(null)
-    }
-  }
-
-  async function handleFixAction(action: string) {
-    if (action === 'tag_pdf') return tagPdf()
-    if (action === 'generate_alt_text') return remediate()
-    if (action === 'infer_labels') return inferLabels()
-    // Remaining actions (set_language, set_title, set_pdfua_metadata,
-    // set_marked_info) are all rolled up into the one-click modernizer.
-    return modernizePdf()
   }
 
   async function run<T>(fn: () => Promise<T>): Promise<T | undefined> {
@@ -198,8 +122,8 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
       setDoc(document)
       setScan(scan)
       setPhase('uploaded')
-      // Fire-and-forget the WCAG check so the scorecard appears alongside the scan.
-      loadWcag(document.docId)
+      // Do not auto-run the WCAG scan — the Workbench flow asks the user to
+      // click "Find Issues" explicitly so the analysis step is discoverable.
     })
   }
 
@@ -217,7 +141,7 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
         setDoc(document)
         setScan(scan)
         setPhase('uploaded')
-        loadWcag(document.docId)
+        // Corpus ingest lands on the same "Click Find Issues" state as upload.
       })
       .catch((err) => {
         if (cancelled) return
@@ -233,41 +157,46 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
   }, [corpusRef])
 
   /**
-   * Comprehensive Remediate flow — the mega-button.
-   *
-   * Chains every applicable fix in order, only stopping for human review on
-   * alt-text (the one thing an AI cannot ship unattended):
-   *   1. If untagged → inject structure tree (Tag PDF)
-   *   2. Modernize metadata (language / title / PDF-UA / MarkInfo) if any missing
-   *   3. Infer form-field labels if the doc has AcroForm fields lacking /TU
-   *   4. Kick the alt-text job → poll → land on the review UI
-   *
-   * Steps 1-3 run silently and are recapped in the modernization panel.
-   * Step 4 shows the reviewer the AI suggestions to edit/approve before applying.
-   * If the doc has no figures needing alt text, the flow stops after step 3 —
-   * the reviewer can then click Download.
+   * "Find Issues" — the analysis step. Runs the WCAG 2.1 AA scan on the
+   * currently stored bytes and pins the score so subsequent fixes can show
+   * a delta.
    */
-  async function remediate() {
+  async function findIssues() {
     if (!doc) return
-    await run(async () => {
-      const trail: string[] = []
+    setFixingAction('find_issues')
+    setError(null)
+    try {
+      const report = await api.wcagCheckDocument(doc.docId)
+      setWcag(report)
+      setWcagBefore(report.score) // baseline for delta
+      setSectionSuccess({})
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : String(err))
+    } finally {
+      setFixingAction(null)
+    }
+  }
 
-      // 1. Tag PDF if untagged (creates /Figure elements around images)
+  /**
+   * Apply every deterministic Modernization fix: inject tags if untagged, set
+   * language/title/PDF-UA/MarkInfo, and write /TU tooltips on unlabelled form
+   * fields. Marks the Modernization section as done with a recap.
+   */
+  async function applyModernization() {
+    if (!doc) return
+    setSectionBusy('modernization')
+    setError(null)
+    const trail: string[] = []
+    try {
       if (scan?.tagStatus === 'UNTAGGED') {
         try {
           const { scan: newScan } = await api.tagDocument(doc.docId)
           setScan(newScan)
           trail.push('Injected structure tree (Tag PDF)')
         } catch (err) {
-          // Non-fatal — surface but continue to the next step
-          trail.push(
-            `Tag PDF skipped: ${err instanceof ApiError ? err.message : String(err)}`,
-          )
+          trail.push(`Tag skipped: ${err instanceof ApiError ? err.message : String(err)}`)
         }
       }
-
-      // 2. Modernize deterministic metadata (idempotent — safe to call always).
-      // Only surface it as a trail entry if there was work to do.
       try {
         const modernized = await api.modernizeDocument(doc.docId)
         setScan(modernized.scan)
@@ -275,65 +204,68 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
           for (const a of modernized.actions) trail.push(a)
         }
       } catch (err) {
-        trail.push(
-          `Modernize step skipped: ${err instanceof ApiError ? err.message : String(err)}`,
-        )
+        trail.push(`Modernize skipped: ${err instanceof ApiError ? err.message : String(err)}`)
       }
-
-      // 3. Infer form-field labels (no-op if the PDF has no unlabelled fields)
       try {
         const labels = await api.inferLabels(doc.docId)
         if (labels.labelsWritten > 0) {
-          for (const w of labels.writes) {
-            trail.push(`Labelled field '${w.fieldName}' → '${w.inferredLabel}' (${w.confidence})`)
-          }
+          trail.push(`Wrote ${labels.labelsWritten} form-field label${labels.labelsWritten === 1 ? '' : 's'}`)
         }
       } catch (err) {
-        trail.push(
-          `Label inference skipped: ${err instanceof ApiError ? err.message : String(err)}`,
-        )
+        trail.push(`Label inference skipped: ${err instanceof ApiError ? err.message : String(err)}`)
       }
-
-      // Re-score WCAG so the scorecard reflects the pre-review state
-      const before = wcag?.score ?? null
+      // Re-score so header strip shows delta immediately.
       try {
         const report = await api.wcagCheckDocument(doc.docId)
         setWcag(report)
-        if (before !== null && before !== report.score) setWcagBefore(before)
-      } catch {
-        // Non-fatal; scorecard just won't update
-      }
-      if (trail.length > 0) setModernizeActions(trail)
+      } catch { /* noop */ }
+      if (trail.length === 0) trail.push('Already modernized — nothing to do.')
+      setSectionSuccess((prev) => ({ ...prev, modernization: trail }))
+    } finally {
+      setSectionBusy(null)
+    }
+  }
 
-      // 4. Alt-text remediation (only if the doc has figures missing alt).
-      // After step 1, previously-untagged docs may now have Figure elements.
-      const latestScan = await api
-        .wcagCheckDocument(doc.docId)
-        .catch(() => null)
-      const stillNeedsAlt =
-        latestScan?.findings?.some(
-          (f) => f.ruleId === 'WCAG-1.1.1-figure-alt' && !f.passed,
-        ) ?? true
+  /**
+   * "Fix all auto-fixable" — the header strip's mega-button. Runs the
+   * Modernization section's fixes. Called by the WcagHeaderStrip.
+   */
+  async function fixAllAutoFixable() {
+    setFixingAction('fix_all')
+    try {
+      await applyModernization()
+    } finally {
+      setFixingAction(null)
+    }
+  }
 
-      if (!stillNeedsAlt) {
-        // Everything's done. Land on the modernization recap surface —
-        // reviewer can download from the original.pdf link.
-        return
-      }
-
-      const { job } = await api.createJob(doc.docId) // 422 NOT_TAGGED surfaces here
+  /**
+   * Kick off the alt-text remediation job for the Remediation section. Lands
+   * on the 'review' phase, which unfolds the reviewer UI inline below the
+   * section card via `inlineReviewer` (see render below).
+   */
+  async function startAltTextReview() {
+    if (!doc) return
+    setSectionBusy('remediation')
+    setError(null)
+    try {
+      const { job } = await api.createJob(doc.docId)
       setPhase('analyzing')
       await api.analyze(job.jobId)
       const ready = await pollJob(job.jobId, (j) => j.status === 'NEEDS_REVIEW')
       setJob(ready)
-      // Opt-out review: every suggestion starts accepted, reviewer edits/rejects.
       const initial: Record<string, Review> = {}
       for (const issue of ready.issues) {
         initial[issue.issueId] = { altText: issue.suggestedAltText ?? '', rejected: false }
       }
       setReviews(initial)
       setPhase('review')
-    })
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : String(err))
+      setPhase('uploaded')
+    } finally {
+      setSectionBusy(null)
+    }
   }
 
   async function startOcr() {
@@ -406,20 +338,23 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
     return r && !r.rejected && r.altText.trim()
   }).length
 
+  const sections = wcag ? groupIntoSections(wcag) : []
+  const downloadUrl = doc ? api.originalUrl(doc.docId) : null
+
   return (
     <section className="view" aria-labelledby="flow-title">
       <div className="wrap">
         <div className="pagehead">
           <h1 className="pagehead__title" id="flow-title">
-            Remediate a PDF
+            PDF Workbench
           </h1>
           <p className="pagehead__sub">
-            Upload a tagged PDF, review AI-suggested alternative text for its images, and download
-            the remediated file.
+            Upload a PDF, find every accessibility issue Ramp can detect, fix each category in one
+            click (with human review where it matters), and download the modernized file.
           </p>
         </div>
 
-        {/* ── action bar ──────────────────────────────────────────── */}
+        {/* ── upload / find-issues bar ────────────────────────────── */}
         <div className="uploadbar">
           <input
             ref={fileInput}
@@ -436,39 +371,17 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
 
           {doc && <span className="uploadbar__name">{doc.filename}</span>}
 
-          {doc && scan && phase === 'uploaded' && scan.tagStatus === 'UNTAGGED' && (
-            <button
-              type="button"
-              className="btn btn--ghost"
-              onClick={tagPdf}
-              disabled={busy || fixingAction === 'tag_pdf'}
-              title="Inject a structure tree so the PDF becomes accessible"
-            >
-              {fixingAction === 'tag_pdf' ? 'Tagging…' : 'Tag PDF'}
-            </button>
-          )}
-
           {doc && phase === 'uploaded' && (
             <button
               type="button"
-              className="btn btn--secondary"
-              onClick={modernizePdf}
-              disabled={busy || fixingAction === 'modernize'}
-              title="One-click: tag structure, set language/title, declare PDF/UA"
+              className="btn btn--primary"
+              onClick={findIssues}
+              disabled={fixingAction === 'find_issues'}
+              title="Run the WCAG 2.1 AA scan on this PDF"
             >
-              {fixingAction === 'modernize' ? 'Modernizing…' : 'Modernize'}
+              {fixingAction === 'find_issues' ? 'Scanning…' : wcag ? 'Re-scan' : 'Find Issues'}
             </button>
           )}
-
-          <button
-            type="button"
-            className="btn btn--primary"
-            onClick={remediate}
-            disabled={busy || phase !== 'uploaded' || !scan}
-            title="Comprehensive fix: tag if untagged, add missing metadata, infer form labels, then review AI-suggested alt text for figures. Applies every fix Ramp can make."
-          >
-            Remediate
-          </button>
         </div>
 
         {error && (
@@ -488,58 +401,52 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
           <p className="flow-status" role="status">
             <span className="spinner" aria-hidden="true" />
             {phase === 'analyzing'
-              ? 'Analyzing the PDF and generating alt text… this takes a few seconds per image.'
+              ? 'Analyzing the PDF and generating alt-text suggestions… a few seconds per image.'
               : phase === 'ocr-analyzing'
-                ? 'Running OCR and reconstructing document structure… this may take a minute for large documents.'
+                ? 'Running OCR and reconstructing document structure… this may take a minute.'
                 : 'Writing the approved alt text into the PDF…'}
           </p>
         )}
 
-        {/* ── after upload: what we found ─────────────────────────── */}
-        {scan && doc && phase === 'uploaded' && (
+        {/* ── pre-scan state: show scan summary, prompt Find Issues ── */}
+        {scan && doc && phase === 'uploaded' && !wcag && (
           <ScanSummary doc={doc} scan={scan} onStartOcr={startOcr} busy={busy} />
         )}
 
-        {/* ── modernize action recap ──────────────────────────────── */}
-        {modernizeActions && (
-          <div className="panel modernize-recap">
-            <div className="panel__body">
-              <h2 className="subhead">Modernization applied</h2>
-              <p>Deterministic accessibility fixes now written into the document:</p>
-              <ul className="modernize-recap__list">
-                {modernizeActions.map((a) => (
-                  <li key={a}>
-                    <span className="modernize-recap__tick" aria-hidden>✓</span>
-                    {a}
-                  </li>
-                ))}
-              </ul>
-              {doc && (
-                <a
-                  className="btn btn--primary btn--lg"
-                  href={api.originalUrl(doc.docId)}
-                  download
-                >
-                  <Download />
-                  Download modernized PDF
-                </a>
-              )}
-              <p className="hint" style={{ marginTop: '.75rem' }}>
-                Alt text for figures still needs human review — click
-                <strong> Remediate</strong> above to run the AI suggestions.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* ── WCAG scorecard: always visible once we have a document ─ */}
+        {/* ── after Find Issues: header strip + sectioned findings ── */}
         {wcag && phase === 'uploaded' && (
-          <WcagScorecard
-            report={wcag}
-            beforeScore={wcagBefore ?? undefined}
-            fixingAction={fixingAction}
-            onFixAction={(action) => handleFixAction(action)}
-          />
+          <>
+            <WcagHeaderStrip
+              report={wcag}
+              beforeScore={wcagBefore ?? undefined}
+              autoFixableCount={wcag.autoFixableCount}
+              onFixAllAutoFixable={fixAllAutoFixable}
+              onDownload={() => downloadUrl && window.open(downloadUrl, '_blank')}
+              canDownload={!!downloadUrl && Object.keys(sectionSuccess).length > 0}
+              busy={fixingAction}
+            />
+
+            {sections.map((s) => {
+              const success = sectionSuccess[s.key]
+              if (success) {
+                return <SectionSuccess key={s.key} title={s.title} actions={success} />
+              }
+              return (
+                <IssueSectionCard
+                  key={s.key}
+                  section={s}
+                  busy={sectionBusy}
+                  onApply={
+                    s.key === 'modernization'
+                      ? () => applyModernization()
+                      : s.key === 'remediation' && s.failing.length > 0
+                        ? () => startAltTextReview()
+                        : undefined
+                  }
+                />
+              )
+            })}
+          </>
         )}
 
         {/* ── review the suggestions ──────────────────────────────── */}
