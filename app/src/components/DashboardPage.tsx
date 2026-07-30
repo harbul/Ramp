@@ -151,16 +151,21 @@ export function DashboardPage({ forms, onUploaded }: DashboardPageProps) {
                   accept=".pdf,application/pdf"
                   onChange={handleFileSelect}
                   className="visually-hidden"
-                  aria-label="Upload a PDF for analysis"
+                  aria-label="Analyze a new PDF: classify, recommend an action, and auto-remediate alt text"
                 />
                 <button
                   type="button"
                   className="btn btn--primary"
                   onClick={handleUploadClick}
                   disabled={uploading}
+                  title="Classify the PDF, recommend an action, and auto-fix alt text if it's tagged with images"
                 >
-                  {uploading ? 'Uploading…' : 'Upload a PDF for analysis'}
+                  {uploading ? 'Analyzing…' : 'Analyze new PDF'}
                 </button>
+                <p className="dashboard-upload__hint">
+                  Adds the PDF to your inventory. Ramp classifies it, recommends an action, and
+                  auto-fixes alt text if it's a tagged PDF with images.
+                </p>
 
                 {uploadMessage && (
                   <p className="dashboard-upload__msg" data-tone={messageTone} role="status">

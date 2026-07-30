@@ -232,15 +232,101 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [corpusRef])
 
+  /**
+   * Comprehensive Remediate flow — the mega-button.
+   *
+   * Chains every applicable fix in order, only stopping for human review on
+   * alt-text (the one thing an AI cannot ship unattended):
+   *   1. If untagged → inject structure tree (Tag PDF)
+   *   2. Modernize metadata (language / title / PDF-UA / MarkInfo) if any missing
+   *   3. Infer form-field labels if the doc has AcroForm fields lacking /TU
+   *   4. Kick the alt-text job → poll → land on the review UI
+   *
+   * Steps 1-3 run silently and are recapped in the modernization panel.
+   * Step 4 shows the reviewer the AI suggestions to edit/approve before applying.
+   * If the doc has no figures needing alt text, the flow stops after step 3 —
+   * the reviewer can then click Download.
+   */
   async function remediate() {
     if (!doc) return
     await run(async () => {
+      const trail: string[] = []
+
+      // 1. Tag PDF if untagged (creates /Figure elements around images)
+      if (scan?.tagStatus === 'UNTAGGED') {
+        try {
+          const { scan: newScan } = await api.tagDocument(doc.docId)
+          setScan(newScan)
+          trail.push('Injected structure tree (Tag PDF)')
+        } catch (err) {
+          // Non-fatal — surface but continue to the next step
+          trail.push(
+            `Tag PDF skipped: ${err instanceof ApiError ? err.message : String(err)}`,
+          )
+        }
+      }
+
+      // 2. Modernize deterministic metadata (idempotent — safe to call always).
+      // Only surface it as a trail entry if there was work to do.
+      try {
+        const modernized = await api.modernizeDocument(doc.docId)
+        setScan(modernized.scan)
+        if (modernized.actions.length > 0 && modernized.after.score > modernized.before.score) {
+          for (const a of modernized.actions) trail.push(a)
+        }
+      } catch (err) {
+        trail.push(
+          `Modernize step skipped: ${err instanceof ApiError ? err.message : String(err)}`,
+        )
+      }
+
+      // 3. Infer form-field labels (no-op if the PDF has no unlabelled fields)
+      try {
+        const labels = await api.inferLabels(doc.docId)
+        if (labels.labelsWritten > 0) {
+          for (const w of labels.writes) {
+            trail.push(`Labelled field '${w.fieldName}' → '${w.inferredLabel}' (${w.confidence})`)
+          }
+        }
+      } catch (err) {
+        trail.push(
+          `Label inference skipped: ${err instanceof ApiError ? err.message : String(err)}`,
+        )
+      }
+
+      // Re-score WCAG so the scorecard reflects the pre-review state
+      const before = wcag?.score ?? null
+      try {
+        const report = await api.wcagCheckDocument(doc.docId)
+        setWcag(report)
+        if (before !== null && before !== report.score) setWcagBefore(before)
+      } catch {
+        // Non-fatal; scorecard just won't update
+      }
+      if (trail.length > 0) setModernizeActions(trail)
+
+      // 4. Alt-text remediation (only if the doc has figures missing alt).
+      // After step 1, previously-untagged docs may now have Figure elements.
+      const latestScan = await api
+        .wcagCheckDocument(doc.docId)
+        .catch(() => null)
+      const stillNeedsAlt =
+        latestScan?.findings?.some(
+          (f) => f.ruleId === 'WCAG-1.1.1-figure-alt' && !f.passed,
+        ) ?? true
+
+      if (!stillNeedsAlt) {
+        // Everything's done. Land on the modernization recap surface —
+        // reviewer can download from the original.pdf link.
+        return
+      }
+
       const { job } = await api.createJob(doc.docId) // 422 NOT_TAGGED surfaces here
       setPhase('analyzing')
       await api.analyze(job.jobId)
       const ready = await pollJob(job.jobId, (j) => j.status === 'NEEDS_REVIEW')
       setJob(ready)
-      // Opt-out: every suggestion starts accepted, matching the reviewer flow.
+      // Opt-out review: every suggestion starts accepted, reviewer edits/rejects.
       const initial: Record<string, Review> = {}
       for (const issue of ready.issues) {
         initial[issue.issueId] = { altText: issue.suggestedAltText ?? '', rejected: false }
@@ -378,10 +464,10 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
             type="button"
             className="btn btn--primary"
             onClick={remediate}
-            disabled={busy || phase !== 'uploaded' || !scan || scan.figuresMissingAlt === 0}
-            title="Review AI-suggested alt text for each figure before applying"
+            disabled={busy || phase !== 'uploaded' || !scan}
+            title="Comprehensive fix: tag if untagged, add missing metadata, infer form labels, then review AI-suggested alt text for figures. Applies every fix Ramp can make."
           >
-            Remediate ALT Text
+            Remediate
           </button>
         </div>
 
@@ -439,8 +525,8 @@ export function RemediateFlow({ corpusRef = null }: RemediateFlowProps) {
                 </a>
               )}
               <p className="hint" style={{ marginTop: '.75rem' }}>
-                Alt text and form-field labels still need human review — use
-                <strong> Remediate ALT Text</strong> above to review AI suggestions.
+                Alt text for figures still needs human review — click
+                <strong> Remediate</strong> above to run the AI suggestions.
               </p>
             </div>
           </div>
@@ -676,7 +762,7 @@ function ScanSummary({
           <strong>{doc.filename}</strong> is tagged with {scan.pageCount} page
           {scan.pageCount === 1 ? '' : 's'}. Found <strong>{scan.figuresMissingAlt}</strong> image
           {scan.figuresMissingAlt === 1 ? '' : 's'} missing alternative text. Click{' '}
-          <strong>Remediate ALT Text</strong> to generate suggestions.
+          <strong>Remediate</strong> to run the full remediation pass.
         </p>
       </div>
     </div>

@@ -53,6 +53,18 @@ const KNOWN_SIGNALS = [
 const rid = (form: FormInventoryItem) => `${form.department}/${form.file}`
 const deptLabel = (slug: string) => slug.replace(/-/g, ' ')
 
+/**
+ * URL a "View" button can open for this row.
+ *   - live uploads (docId set): stream from backend at /pdf/documents/{id}/original.pdf
+ *   - DubBot rows (sourceUrl set): the real Sac State URL
+ *   - curated ABA corpus rows: no URL available (return null; button renders as em-dash)
+ */
+function viewUrlFor(form: FormInventoryItem): string | null {
+  if (form.docId) return `/pdf/documents/${form.docId}/original.pdf`
+  if (form.sourceUrl) return form.sourceUrl
+  return null
+}
+
 function loadStatuses(): Record<string, ReviewStatus> {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
@@ -294,55 +306,96 @@ export function LibraryPage({ forms, onRemediate }: LibraryPageProps) {
             </button>
           </div>
 
-          <div className="qpills" role="group" aria-label="Filter by recommended action">
-            {ACTION_FILTERS.map((filter) => (
-              <button
-                key={filter.value}
-                type="button"
-                className="qpill"
-                aria-pressed={actionFilter === filter.value}
-                onClick={() => {
-                  setActionFilter(filter.value)
+          <div className="filterbar" role="group" aria-label="Filter forms">
+            <label className="filterbar__field">
+              <span className="filterbar__label">Recommended action</span>
+              <select
+                className="filterbar__select"
+                value={actionFilter}
+                onChange={(event) => {
+                  setActionFilter(event.target.value as FormAction | 'all')
                   setOpenId(null)
                 }}
               >
-                {filter.label}
-              </button>
-            ))}
-          </div>
+                {ACTION_FILTERS.map((filter) => (
+                  <option key={filter.value} value={filter.value}>
+                    {filter.label}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <div className="qpills qpills--tag" role="group" aria-label="Filter by tag status">
-            <span className="qpills__label">Tag status:</span>
-            {TAG_FILTERS.map((filter) => (
-              <button
-                key={filter.value}
-                type="button"
-                className="qpill qpill--sm"
-                aria-pressed={tagFilter === filter.value}
-                onClick={() => {
-                  setTagFilter(filter.value)
+            <label className="filterbar__field">
+              <span className="filterbar__label">Tag status</span>
+              <select
+                className="filterbar__select"
+                value={tagFilter}
+                onChange={(event) => {
+                  setTagFilter(event.target.value as TagFilter)
                   setOpenId(null)
                 }}
               >
-                {filter.label}
-              </button>
-            ))}
+                {TAG_FILTERS.map((filter) => (
+                  <option key={filter.value} value={filter.value}>
+                    {filter.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <details className="filterbar__field filterbar__multi">
+              <summary className="filterbar__select filterbar__multi-summary">
+                <span className="filterbar__label">Process signals</span>
+                <span className="filterbar__multi-value">
+                  {signalFilter.size === 0 ? 'Any' : `${signalFilter.size} selected`}
+                </span>
+              </summary>
+              <div className="filterbar__multi-panel">
+                {KNOWN_SIGNALS.map((s) => (
+                  <label key={s.value} className="filterbar__multi-option">
+                    <input
+                      type="checkbox"
+                      checked={signalFilter.has(s.value)}
+                      onChange={() => toggleSignal(s.value)}
+                    />
+                    <span>{s.label}</span>
+                  </label>
+                ))}
+                {signalFilter.size > 0 && (
+                  <button
+                    type="button"
+                    className="filterbar__multi-clear"
+                    onClick={() => {
+                      setSignalFilter(new Set())
+                      setOpenId(null)
+                    }}
+                  >
+                    Clear signal filters
+                  </button>
+                )}
+              </div>
+            </details>
           </div>
 
-          <div className="qpills qpills--sig" role="group" aria-label="Filter by process signals">
-            <span className="qpills__label">Signals:</span>
-            {KNOWN_SIGNALS.map((s) => (
-              <button
-                key={s.value}
-                type="button"
-                className="qpill qpill--sm qpill--sig"
-                aria-pressed={signalFilter.has(s.value)}
-                onClick={() => toggleSignal(s.value)}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
+          {signalFilter.size > 0 && (
+            <div className="chips" aria-live="polite">
+              {[...signalFilter].map((signal) => {
+                const label = KNOWN_SIGNALS.find((s) => s.value === signal)?.label ?? signal
+                return (
+                  <span className="chip" key={signal}>
+                    {label}
+                    <button
+                      type="button"
+                      onClick={() => toggleSignal(signal)}
+                      aria-label={`Remove ${label} filter`}
+                    >
+                      <Cross />
+                    </button>
+                  </span>
+                )
+              })}
+            </div>
+          )}
 
           {activeFilters.length > 0 && (
             <div className="chips" aria-live="polite">
@@ -380,7 +433,7 @@ export function LibraryPage({ forms, onRemediate }: LibraryPageProps) {
                   <th scope="col">Form</th>
                   <th scope="col">Department</th>
                   <th scope="col">Action</th>
-                  <th scope="col">Work</th>
+                  <th scope="col" className="cell-view">View</th>
                   <th scope="col">Status</th>
                 </tr>
               </thead>
@@ -420,8 +473,26 @@ export function LibraryPage({ forms, onRemediate }: LibraryPageProps) {
                         <td data-label="Action">
                           <span className={`StatusBadge StatusBadge--${meta.color}`}>{meta.label}</span>
                         </td>
-                        <td className="cell-work" data-label="Work">
-                          {form.workItems[0] ?? '-'}
+                        <td className="cell-view" data-label="View">
+                          {viewUrlFor(form) ? (
+                            <a
+                              className="btn btn--ghost btn--sm"
+                              href={viewUrlFor(form)!}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(event) => event.stopPropagation()}
+                              aria-label={`Open ${form.file} in a new tab`}
+                            >
+                              View
+                            </a>
+                          ) : (
+                            <span
+                              className="cell-view__na"
+                              title="This form's PDF isn't available in the demo (corpus rows are placeholders)."
+                            >
+                              —
+                            </span>
+                          )}
                         </td>
                         <td data-label="Status">
                           <button
@@ -485,7 +556,7 @@ export function LibraryPage({ forms, onRemediate }: LibraryPageProps) {
                                       onRemediate(form.department, form.file)
                                     }}
                                   >
-                                    Remediate alt text
+                                    Remediate
                                   </button>
                                   <span className="queue-detail__action-note">
                                     {remediableImageCount(form.department, form.file)} image
