@@ -83,3 +83,12 @@ export const Eye = ({ className }: IconProps) => (
     <circle cx="10" cy="10" r="2.75" {...base} strokeWidth={1.5} />
   </svg>
 )
+
+/** The Ramp wordmark glyph: a rising incline to a dot — "the on-ramp to
+ *  accessible PDFs." Used beside the "Ramp" text in the banner. */
+export const RampMark = ({ className }: IconProps) => (
+  <svg className={className} viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+    <path d="M4 25 H12 L27 8" {...base} strokeWidth={2.75} />
+    <circle cx="27" cy="8" r="3" fill="currentColor" stroke="none" />
+  </svg>
+)

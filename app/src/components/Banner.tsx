@@ -1,4 +1,4 @@
-import { UniversitySeal } from './Icons'
+import { RampMark, UniversitySeal } from './Icons'
 
 interface BannerProps {
   onHome: () => void
@@ -12,20 +12,17 @@ export function Banner({ onHome, onDashboard, onRemediate, currentView }: Banner
     <header className="banner">
       <div className="banner__inner">
         <a
-          className="banner__brand"
+          className="banner__ramp"
           href="#main"
           onClick={(event) => {
             event.preventDefault()
             onDashboard()
           }}
         >
-          <span className="banner__seal">
-            <UniversitySeal />
+          <span className="banner__ramp-mark">
+            <RampMark />
           </span>
-          <span className="banner__names">
-            <span className="banner__university">Sacramento State</span>
-            <span className="banner__product">PDF Remediation Assistant</span>
-          </span>
+          <span className="banner__ramp-word">Ramp</span>
         </a>
         <nav className="banner__nav">
           <button
@@ -50,10 +47,15 @@ export function Banner({ onHome, onDashboard, onRemediate, currentView }: Banner
             Workbench
           </button>
         </nav>
-        <p className="banner__meta">
-          <span className="banner__meta-label">ADA Title&nbsp;II deadline</span>
-          <span className="banner__meta-value">April 2027</span>
-        </p>
+        <span className="banner__brand">
+          <span className="banner__names">
+            <span className="banner__university">Sacramento State</span>
+            <span className="banner__product">PDF Remediation Assistant</span>
+          </span>
+          <span className="banner__seal">
+            <UniversitySeal />
+          </span>
+        </span>
       </div>
     </header>
   )
