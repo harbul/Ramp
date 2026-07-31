@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useInView } from '../lib/useInView'
 import { useMediaQuery } from '../lib/useMediaQuery'
 import type { FormAction, FormInventoryItem } from '../types'
@@ -124,6 +124,132 @@ function FixIssuesCell({
     >
       —
     </span>
+  )
+}
+
+/**
+ * Custom single-select dropdown using <details>/<summary>. Renders in the
+ * site palette instead of the native OS select dropdown (which on macOS
+ * shows a dark overlay that doesn't match the theme).
+ */
+function SingleSelectDropdown<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string
+  options: readonly { value: T; label: string }[]
+  value: T
+  onChange: (v: T) => void
+}) {
+  const current = options.find((o) => o.value === value) ?? options[0]
+  const detailsRef = useRef<HTMLDetailsElement>(null)
+  // Close on outside click.
+  useEffect(() => {
+    const onDoc = (event: MouseEvent) => {
+      if (!detailsRef.current) return
+      if (!detailsRef.current.contains(event.target as Node)) {
+        detailsRef.current.open = false
+      }
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [])
+  return (
+    <details className="filterbar__field filterbar__single" ref={detailsRef}>
+      <summary className="filterbar__select filterbar__single-summary">
+        <span className="filterbar__label">{label}</span>
+        <span className="filterbar__single-value">{current?.label ?? ''}</span>
+      </summary>
+      <div className="filterbar__single-panel">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            className={`filterbar__single-option ${opt.value === value ? 'filterbar__single-option--active' : ''}`}
+            onClick={() => {
+              onChange(opt.value)
+              if (detailsRef.current) detailsRef.current.open = false
+            }}
+          >
+            <span className="filterbar__single-check" aria-hidden>
+              {opt.value === value ? <Check /> : ''}
+            </span>
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </details>
+  )
+}
+
+/**
+ * Multi-select variant of the custom dropdown — same visual language as
+ * SingleSelectDropdown but with checkbox rows and a Clear button. Stays
+ * inside the filter bar so Recommended Action / Tag Status / Process
+ * Signals read as one group of three dropdowns.
+ */
+function MultiSelectDropdown({
+  label,
+  options,
+  selected,
+  onToggle,
+  onClear,
+}: {
+  label: string
+  options: readonly { value: string; label: string }[]
+  selected: ReadonlySet<string>
+  onToggle: (value: string) => void
+  onClear: () => void
+}) {
+  const detailsRef = useRef<HTMLDetailsElement>(null)
+  useEffect(() => {
+    const onDoc = (event: MouseEvent) => {
+      if (!detailsRef.current) return
+      if (!detailsRef.current.contains(event.target as Node)) {
+        detailsRef.current.open = false
+      }
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [])
+  return (
+    <details className="filterbar__field filterbar__single" ref={detailsRef}>
+      <summary className="filterbar__select filterbar__single-summary">
+        <span className="filterbar__label">{label}</span>
+        <span className="filterbar__single-value">
+          {selected.size === 0 ? 'Any' : `${selected.size} selected`}
+        </span>
+      </summary>
+      <div className="filterbar__single-panel">
+        {options.map((opt) => {
+          const on = selected.has(opt.value)
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              className={`filterbar__single-option ${on ? 'filterbar__single-option--active' : ''}`}
+              onClick={() => onToggle(opt.value)}
+            >
+              <span className="filterbar__single-check" aria-hidden>
+                {on ? <Check /> : ''}
+              </span>
+              {opt.label}
+            </button>
+          )
+        })}
+        {selected.size > 0 && (
+          <button
+            type="button"
+            className="filterbar__multi-clear"
+            onClick={onClear}
+          >
+            Clear selection
+          </button>
+        )}
+      </div>
+    </details>
   )
 }
 
@@ -387,74 +513,34 @@ export function LibraryPage({
           </div>
 
           <div className="filterbar" role="group" aria-label="Filter forms">
-            <label className="filterbar__field">
-              <span className="filterbar__label">Recommended action</span>
-              <select
-                className="filterbar__select"
-                value={actionFilter}
-                onChange={(event) => {
-                  setActionFilter(event.target.value as FormAction | 'all')
-                  setOpenId(null)
-                }}
-              >
-                {ACTION_FILTERS.map((filter) => (
-                  <option key={filter.value} value={filter.value}>
-                    {filter.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="filterbar__field">
-              <span className="filterbar__label">Tag status</span>
-              <select
-                className="filterbar__select"
-                value={tagFilter}
-                onChange={(event) => {
-                  setTagFilter(event.target.value as TagFilter)
-                  setOpenId(null)
-                }}
-              >
-                {TAG_FILTERS.map((filter) => (
-                  <option key={filter.value} value={filter.value}>
-                    {filter.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <details className="filterbar__field filterbar__multi">
-              <summary className="filterbar__select filterbar__multi-summary">
-                <span className="filterbar__label">Process signals</span>
-                <span className="filterbar__multi-value">
-                  {signalFilter.size === 0 ? 'Any' : `${signalFilter.size} selected`}
-                </span>
-              </summary>
-              <div className="filterbar__multi-panel">
-                {KNOWN_SIGNALS.map((s) => (
-                  <label key={s.value} className="filterbar__multi-option">
-                    <input
-                      type="checkbox"
-                      checked={signalFilter.has(s.value)}
-                      onChange={() => toggleSignal(s.value)}
-                    />
-                    <span>{s.label}</span>
-                  </label>
-                ))}
-                {signalFilter.size > 0 && (
-                  <button
-                    type="button"
-                    className="filterbar__multi-clear"
-                    onClick={() => {
-                      setSignalFilter(new Set())
-                      setOpenId(null)
-                    }}
-                  >
-                    Clear signal filters
-                  </button>
-                )}
-              </div>
-            </details>
+            <SingleSelectDropdown
+              label="Recommended action"
+              options={ACTION_FILTERS}
+              value={actionFilter}
+              onChange={(v) => {
+                setActionFilter(v as FormAction | 'all')
+                setOpenId(null)
+              }}
+            />
+            <SingleSelectDropdown
+              label="Tag status"
+              options={TAG_FILTERS}
+              value={tagFilter}
+              onChange={(v) => {
+                setTagFilter(v as TagFilter)
+                setOpenId(null)
+              }}
+            />
+            <MultiSelectDropdown
+              label="Process signals"
+              options={KNOWN_SIGNALS as readonly { value: string; label: string }[]}
+              selected={signalFilter}
+              onToggle={toggleSignal}
+              onClear={() => {
+                setSignalFilter(new Set())
+                setOpenId(null)
+              }}
+            />
           </div>
 
           {signalFilter.size > 0 && (

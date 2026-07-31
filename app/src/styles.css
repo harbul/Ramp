@@ -1537,6 +1537,134 @@ button, input, textarea { font: inherit; color: inherit; }
 }
 .filterbar__multi-clear:hover { background: var(--alert-bg); }
 
+/* Custom single-select dropdown — same visual language as the multi. */
+.filterbar__single { position: relative; }
+.filterbar__single > summary {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: .05rem;
+  padding-top: .35rem;
+  padding-bottom: .35rem;
+  padding-left: .85rem;
+  padding-right: 2.2rem;
+}
+.filterbar__single > summary::-webkit-details-marker { display: none; }
+.filterbar__single > summary::marker { display: none; }
+.filterbar__single-summary .filterbar__label { line-height: 1; }
+.filterbar__single-value {
+  font-size: .95rem;
+  color: var(--ink);
+}
+.filterbar__single[open] > summary {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(4, 57, 39, .15);
+}
+
+.filterbar__single-panel {
+  position: absolute;
+  top: calc(100% + .35rem);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lift);
+  padding: .35rem;
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+}
+
+.filterbar__single-option {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem .55rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: .93rem;
+  color: var(--ink);
+  text-align: left;
+  border-radius: 6px;
+  transition: background .12s ease;
+}
+.filterbar__single-option:hover { background: var(--green-050); }
+.filterbar__single-option--active { background: var(--green-050); color: var(--green); font-weight: 600; }
+.filterbar__single-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--green);
+}
+.filterbar__single-check svg { width: 14px; height: 14px; }
+
+/* Process Signals row — always-visible checkbox chips OUTSIDE the filter bar */
+.signalbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .45rem;
+  margin: 0 0 1.15rem;
+}
+.signalbar__label {
+  font-size: .78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--ink-soft);
+  margin-right: .25rem;
+}
+.signalbar__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .35rem .75rem .35rem .5rem;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 999px;
+  font: inherit;
+  font-size: .85rem;
+  cursor: pointer;
+  transition: border-color .12s ease, background .12s ease;
+}
+.signalbar__chip:hover { border-color: var(--gold-deep); background: var(--gold-050); }
+.signalbar__chip--active {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+.signalbar__chip--active:hover { background: var(--green-600); border-color: var(--green-600); }
+.signalbar__check {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.signalbar__check svg { width: 14px; height: 14px; }
+.signalbar__chip:not(.signalbar__chip--active) .signalbar__check svg { display: none; }
+.signalbar__clear {
+  background: transparent;
+  border: 0;
+  color: var(--alert-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 600;
+  padding: .35rem .5rem;
+  border-radius: 6px;
+  margin-left: auto;
+}
+.signalbar__clear:hover { background: var(--alert-bg); }
+
 /* ── Inline eye icon (PDF preview trigger) ──────────────────────── */
 
 .doc__eye {
