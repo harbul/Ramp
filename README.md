@@ -110,4 +110,4 @@ Status (all pairs ≥ 4.5:1)
 
 ---
 
-Sole maintainer: **harbul**.
+
