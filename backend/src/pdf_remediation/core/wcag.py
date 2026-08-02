@@ -35,6 +35,7 @@ from pikepdf import Name, Pdf
 
 from .bookmarks import outline_is_valid
 from .scan import walk_figures
+from .tables import row_cells, table_rows, walk_tables
 
 
 class Severity(StrEnum):
@@ -254,45 +255,20 @@ def _iter_heading_levels(pdf: Pdf) -> list[int]:
 
 
 def _tables_missing_headers(pdf: Pdf) -> list[str]:
-    """Return locations of /Table elements whose first row has no /TH cell."""
-    if "/StructTreeRoot" not in pdf.Root:
-        return []
+    """Return locations of /Table elements whose first row has no /TH cell.
+
+    Uses the same row-walking as core.tables.fix_table_headers, so a table
+    whose header row is wrapped in /THead is recognised here too - not just
+    a flat /Table -> /TR shape.
+    """
     bad_locations: list[str] = []
-    table_counter = 0
-
-    def visit(node, depth=0):
-        nonlocal table_counter
-        if depth > 128 or not isinstance(node, (pikepdf.Dictionary, pikepdf.Array)):
-            return
-        if isinstance(node, pikepdf.Array):
-            for k in node:
-                visit(k, depth + 1)
-            return
-        s = node.get("/S")
-        if s is not None and str(s) == "/Table":
-            table_counter += 1
-            kids = node.get("/K")
-            first_row = None
-            if kids is not None:
-                for kid in (kids if isinstance(kids, pikepdf.Array) else [kids]):
-                    if isinstance(kid, pikepdf.Dictionary) and str(kid.get("/S", "")) == "/TR":
-                        first_row = kid
-                        break
-            has_th = False
-            if first_row is not None:
-                row_kids = first_row.get("/K")
-                if row_kids is not None:
-                    for cell in (row_kids if isinstance(row_kids, pikepdf.Array) else [row_kids]):
-                        if isinstance(cell, pikepdf.Dictionary) and str(cell.get("/S", "")) == "/TH":
-                            has_th = True
-                            break
-            if not has_th:
-                bad_locations.append(f"Table {table_counter}")
-        kids = node.get("/K")
-        if kids is not None:
-            visit(kids, depth + 1)
-
-    visit(pdf.Root.StructTreeRoot.get("/K"))
+    for index, table in enumerate(walk_tables(pdf), start=1):
+        rows = table_rows(table)
+        if not rows:
+            continue
+        cells = row_cells(rows[0])
+        if not any(str(c.get("/S", "")) == "/TH" for c in cells):
+            bad_locations.append(f"Table {index}")
     return bad_locations
 
 
@@ -579,23 +555,7 @@ def _check_open_pdf(pdf: Pdf) -> WcagReport:
     bad_tables = _tables_missing_headers(pdf)
     # Only report if there are any tables at all
     if _has_struct_tree(pdf):
-        # Fast walk to count tables
-        table_count = 0
-        def _count_tables(node, depth=0):
-            nonlocal table_count
-            if depth > 128:
-                return
-            if isinstance(node, pikepdf.Array):
-                for k in node:
-                    _count_tables(k, depth + 1)
-                return
-            if isinstance(node, pikepdf.Dictionary):
-                if str(node.get("/S", "")) == "/Table":
-                    table_count += 1
-                kids = node.get("/K")
-                if kids is not None:
-                    _count_tables(kids, depth + 1)
-        _count_tables(pdf.Root.StructTreeRoot.get("/K"))
+        table_count = sum(1 for _ in walk_tables(pdf))
 
         if table_count == 0:
             pass  # no rule fires
@@ -617,11 +577,14 @@ def _check_open_pdf(pdf: Pdf) -> WcagReport:
                 title=f"{len(bad_tables)} of {table_count} table(s) missing header cells",
                 description=(
                     "Data tables without /TH cells make screen readers announce each"
-                    " cell without column context. Add header cells in the first row."
+                    " cell without column context. Ramp can retag the first row of"
+                    " each table as column headers (/TH with /Scope=Column) - the"
+                    " same fix you'd make by hand in a PDF editor."
                 ),
                 severity=Severity.MAJOR,
                 passed=False,
-                manual_review=True,
+                auto_fixable=True,
+                fix_action="fix_table_headers",
                 location=", ".join(bad_tables[:5]),
                 count=len(bad_tables),
             ))

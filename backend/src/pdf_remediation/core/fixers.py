@@ -23,6 +23,7 @@ from pikepdf import Name, Pdf, String
 
 from .bookmarks import generate_bookmarks_from_headings
 from .headings import promote_missing_headings, repair_heading_skips
+from .tables import fix_table_headers
 
 
 DEFAULT_LANG = "en-US"
@@ -155,6 +156,13 @@ def one_click_modernize(
     if not current_title:
         current = set_title(current, title)
         actions.append(f"Set document title to '{title}'")
+
+    # Table headers: retag each table's first row as /TH with /Scope=Column
+    # when it has none. Tag-only — the same fix a reviewer would make by hand.
+    table_result = fix_table_headers(current)
+    if table_result.actions:
+        current = table_result.pdf_bytes
+        actions.extend(table_result.actions)
 
     # Heading structure: promote font-size-based candidates if the document
     # has none, then (either way) renumber any skipped levels. Both are
