@@ -122,4 +122,3 @@ The ignored files exercise AWS adapters / the ONNX detector and belong on the `E
 
 ---
 
-Sole maintainer: **harbul**.
