@@ -1,23 +1,42 @@
-# PDF Remediation Backend - ALT text
+# Ramp Backend
 
-Detects images missing alternative text in **tagged** campus PDFs, proposes alt
-text with an LLM, and writes the reviewer-approved text back into the PDF where
-a screen reader will actually read it.
+FastAPI service behind Ramp's WCAG 2.1 AA scorecard, one-click Modernization,
+AI-reviewed Remediation (alt text + form labels), and Textract-based OCR
+reconstruction for scanned PDFs. Runs against real **Amazon Bedrock**
+(Claude vision alt text), **Amazon Textract** (OCR), **Amazon S3** (PDF
+storage), and **Amazon DynamoDB** (job/document store) by default — every
+provider also has a local/stub equivalent for offline dev. See
+[`../Docs/QUICKSTART.md`](../Docs/QUICKSTART.md) for full setup (AWS
+resources, `.env`, every API route) or jump to [Quick start](#quick-start)
+below for the offline CLI.
 
-**Status:** Core pipeline + real Bedrock alt text verified (86 offline alt-text/
-triage tests + a live check; a recent in-progress OCR merge adds ~19 tests that
-currently fail because their async test setup is not wired up yet). A triage endpoint (`POST /pdf/triage`, classify -> recommend -> auto
-alt-text) wraps the same service and detects process-need signals, so migrate /
-recreate / remediate all fire on live uploads. **S3 + DynamoDB are deployed and
-used** (via `backend/.env`), and triage metadata (classification + recommendation
-+ remediated-PDF link) is **persisted** on the document, so uploads survive a
-reload. Not yet done: deploying the API to Lambda, form-label write-back, and
-auth. See `../Docs/status.md`.
+**Status:** Core alt-text pipeline + real Bedrock alt text verified (86
+offline tests + a live check). Modernization now also promotes/repairs
+heading structure and generates/repairs bookmark outlines
+(`core/headings.py`, `core/bookmarks.py`) — both tag-only edits that never
+touch visible content or formatting. Reviewers can mark a figure
+**decorative** instead of writing alt text, which writes an explicit empty
+`/Alt` (verified end to end, including the post-write independent
+read-back). A triage endpoint (`POST /pdf/triage`, classify → recommend →
+auto alt-text) wraps the same service and detects process-need signals, so
+migrate / recreate / remediate all fire on live uploads. **S3 + DynamoDB are
+the default storage** (via `backend/.env`), and triage metadata
+(classification + recommendation + remediated-PDF link) is **persisted** on
+the document, so uploads survive a reload. Form-field label write-back
+(tier 1, deterministic humanize) is wired and writes real `/TU` labels;
+tiers 2/3 (geometric header match, Bedrock fallback) exist in
+`label_infer.py` but aren't invoked yet. Not yet done: deploying the API to
+Lambda, and auth. See `../Docs/status.md` for the fuller historical handoff.
 
 ## Quick start
 
+The full guide (AWS resources, `.env`, running `uvicorn`, every API route)
+is [`../Docs/QUICKSTART.md`](../Docs/QUICKSTART.md). This is the offline,
+no-AWS CLI path — useful for exercising the alt-text engine directly without
+the API or a cloud account:
+
 ```bash
-python3 -m venv .venv && source .venv/bin/activate    # Python 3.12+
+python3 -m venv .venv && source .venv/bin/activate    # Python 3.13+
 pip install -r requirements-dev.txt
 export PYTHONPATH=src
 
@@ -83,34 +102,46 @@ It also can't write tags anyway.
 ## Architecture
 
 ```
-Local dev:   CLI / FastAPI ──► service ──► LocalStorage + JSON store + stub|bedrock
-Cloud (next):  API GW ──► Lambda ──► service ──► S3 + DynamoDB + Bedrock
+Today:      CLI / FastAPI (run anywhere) ──► service ──► S3 + DynamoDB + Bedrock
+Offline dev: CLI / FastAPI (no .env)      ──► service ──► LocalStorage + JSON store + stub
+Next:        API GW ──► Lambda ──► service ──► S3 + DynamoDB + Bedrock
 ```
 
 `core/` never imports boto3 and never knows what a Lambda is. Storage, the job
 store, and the alt-text provider are protocols in `ports/` with swappable
 implementations in `adapters/`, wired in `config.build_service()`. The CLI and
-the (future) Lambda handlers are thin adapters over the same `service.py` - which
-is why the PoC becomes the deployment instead of being thrown away. The S3,
-DynamoDB, and Bedrock adapters are built and tested; wiring them into a deployed
-Lambda is the remaining step.
+FastAPI are thin adapters over the same `service.py`, and a (future) Lambda
+handler would be another one — which is why the PoC becomes the deployment
+instead of being thrown away. The S3, DynamoDB, and Bedrock adapters are
+built, tested, and are what the app talks to today; wiring them into a
+deployed Lambda (instead of a locally-run FastAPI process) is the remaining
+step.
 
 ```
 src/pdf_remediation/
-  models.py     Job / Issue / TagStatus - the contract with the frontend
-  errors.py     typed domain errors -> HTTP codes at the edge
+  models.py       Job / Issue / TagStatus - the contract with the frontend
+  errors.py       typed domain errors -> HTTP codes at the edge
   core/
-    scan.py     classify + walk the structure tree (no model calls)
-    inspect.py  bind each /Figure to its image via content-stream MCIDs
-    context.py  page text so alt text describes *this* form
-    images.py   extract + downscale
-    apply.py    write /Alt, then verify by reading it back
-  ports/        storage / job_store / alt_text protocols
-  adapters/     local + S3 storage, JSON + DynamoDB store, stub + Bedrock provider
-  service.py    create -> analyze -> approve -> apply
-  api/app.py    FastAPI (incl. POST /pdf/triage, POST /pdf/documents/from-corpus)
-  api/triage.py classify -> recommend -> auto alt-text (uses the inventory module)
-  cli.py        local CLI entry point
+    scan.py       classify + walk the structure tree (no model calls)
+    inspect.py    bind each /Figure to its image via content-stream MCIDs
+    context.py    page text so alt text describes *this* form
+    images.py     extract + downscale
+    apply.py      write /Alt (incl. decorative empty string), verify by reading it back
+    wcag.py       15-rule WCAG 2.1 AA scorer
+    fixers.py     set_language / set_title / one_click_modernize
+    headings.py   promote font-size heading candidates + repair skipped levels
+    bookmarks.py  generate/repair a bookmark outline from the heading structure
+    labels_write.py  AcroForm /TU writeback (tier-1 humanize)
+    ocr_structure.py build StructTreeRoot from an OCR result
+  ports/          storage / job_store / alt_text / ocr / layout protocols
+  adapters/       local + S3 storage, JSON + DynamoDB store, stub + Bedrock alt-text,
+                  stub + Textract + Bedrock-vision OCR
+  service.py      create -> analyze -> approve -> apply, plus clone_document,
+                  modernize, tag_document, infer_labels, OCR job lifecycle
+  api/app.py      FastAPI, 30 routes (incl. POST /pdf/triage, POST /pdf/documents/
+                  from-corpus, POST /pdf/documents/{id}/clone, /modernize, /tag)
+  api/triage.py   classify -> recommend -> auto alt-text (uses the inventory module)
+  cli.py          local CLI entry point
 ```
 
 ## Tests
@@ -143,17 +174,39 @@ The load-bearing ones:
 - **Bedrock is real** - `adapters/alt_text_bedrock.py` uses the `AnthropicBedrock`
   client + cross-region inference profile + forced tool use; verified live in
   `us-west-2`.
-- **FastAPI** (`api/app.py`) over the same service, plus `POST /pdf/triage`
-  (classify -> recommend -> auto alt-text) in `api/triage.py`, with process-need
-  signal detection (signature / workflow / external / sensitive data).
-- **S3 + DynamoDB deployed and used.** `backend/.env` sets
+- **Decorative alt text.** A reviewer can mark a figure decorative instead of
+  writing a description (`ApproveRequest.decorative`); `service.approve()` and
+  `service.apply()` write an explicit empty `/Alt`, and `core/apply.py`'s
+  post-write verification correctly distinguishes that from a genuinely
+  missing `/Alt` (a truthy check would have conflated the two).
+- **Heading structure repair** (`core/headings.py`). When a tagged document has
+  no headings, promotes `/P` elements to `/H1`-`/H3` based on font-size ratio
+  against the body-text median. Separately, renumbers any existing headings so
+  levels never skip (`H1 -> H3` becomes `H1 -> H2`). Both are struct-tree-tag
+  edits only - no content stream, visible text, or layout is touched.
+- **Bookmark generation & repair** (`core/bookmarks.py`). Builds a flat
+  `/Outlines` entry per heading for documents over 10 pages, with real text
+  labels pulled from the heading's marked-content span. `outline_is_valid()`
+  detects not just a missing outline but a **broken** one (entries pointing at
+  pages that don't resolve in this document), so both cases get one fix path.
+- **FastAPI** (`api/app.py`, 30 routes) over the same service, plus
+  `POST /pdf/triage` (classify -> recommend -> auto alt-text) in
+  `api/triage.py`, with process-need signal detection (signature / workflow /
+  external / sensitive data), and `POST /pdf/documents/{id}/clone` so the
+  frontend's Fix Issues flow can sandbox fixes onto a copy.
+- **S3 + DynamoDB are the default storage.** `backend/.env` sets
   `PDF_STORAGE_BACKEND=s3` + `PDF_JOB_STORE=dynamo`; the running service reads/writes
-  the deployed bucket (`csus-pdf-assistant-pdfs-prod`) and table
-  (`csus-pdf-assistant-jobs-prod`). Adapters are `moto`-tested with a parity test
+  the configured bucket and table (see [`../Docs/QUICKSTART.md`](../Docs/QUICKSTART.md)
+  for deploying your own via CDK). Adapters are `moto`-tested with a parity test
   against the local/JSON stores.
 - **Persistence.** `TriageInfo` (classification + recommendation + signals) and the
   remediated-PDF link are stored on the `Document` and returned by
   `GET /pdf/documents`, so uploads survive a reload.
+- **Form-label write-back, tier 1.** `core/labels_write.py` wraps
+  `label_infer.tier1_humanize` and writes real `/TU` tooltips for AcroForm
+  fields that lack one, via `POST /pdf/documents/{id}/infer-labels`. Tiers 2
+  (geometric header match) and 3 (Bedrock fallback) exist in `label_infer.py`
+  but aren't wired into the write path yet.
 
 ## Remediate a listed form (no re-upload)
 
@@ -183,7 +236,9 @@ For in-queue remediation, set `PDF_CORPUS_BUCKET` (and optionally
   `../infra` `BackendStack`, refactor it to import the deployed S3/DynamoDB rather
   than recreate them, and move long-running analyze/apply to a worker Lambda
   (202 + poll).
-- **Form-label write-back** using the `label_infer` tiers (currently detection-only).
+- **Wire up label-inference tiers 2/3** - `label_infer.py` has geometric
+  column-header matching and a Bedrock LLM fallback implemented; only tier 1
+  (deterministic humanize) is invoked by `infer-labels` today.
 - **AuthN/Z** before any shared/hosted deployment.
 
 Note: real campus PDFs may surface structure the synthetic fixtures don't cover.

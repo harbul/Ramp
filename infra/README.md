@@ -1,6 +1,11 @@
 # Infrastructure Deployment
 
-AWS CDK infrastructure for CSUS PDF Modernization Assistant.
+AWS CDK infrastructure for Ramp (formerly CSUS PDF Modernization Assistant —
+stack/resource names below still use the original `csus-pdf-assistant` app
+name by default; pass `APP_NAME=ramp` to `cdk deploy` for a fresh deployment
+under the new name). See [`../Docs/QUICKSTART.md`](../Docs/QUICKSTART.md) §3
+for the guided walkthrough of deploying storage and wiring it into
+`backend/.env`.
 
 ## Prerequisites
 
