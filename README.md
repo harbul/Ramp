@@ -19,7 +19,9 @@ Ramp runs against real AWS end to end: **Amazon Bedrock** (Claude vision) drafts
 **➡️ New here? Start with the [Quick Start Guide](Docs/QUICKSTART.md)** — AWS setup, backend, frontend, and the full API reference, step by step.
 
 Project details: https://app.notion.com/p/Ramp-AI-Powered-PDF-Accessibility-Modernization-Platform-d2202a4630b446329f5d7b3404e17f93?source=copy_link
+
 Demo video: [https://app.notion.com/p/Ramp-AI-Powered-PDF-Accessibility-Modernization-Platform-d2202a4630b446329f5d7b3404e17f93?source=copy_link](https://drive.google.com/file/d/1PAxuQTGcve3TcwybSEs2wIjoHykb6fni/view?usp=sharing)
+
 PPT: https://drive.google.com/file/d/1FUMCh8oll4L3w95qkQ-JBimquyTjVP4Q/view?usp=sharing 
 
 ---
