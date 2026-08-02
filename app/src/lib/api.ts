@@ -68,6 +68,7 @@ export interface ApiIssue {
   suggestedAltText: string | null
   approvedAltText: string | null
   status: IssueStatus
+  isDecorative: boolean
 }
 
 export interface ApiJob {
@@ -213,12 +214,18 @@ export const api = {
     return unwrap(await fetch(`/pdf/jobs/${jobId}`))
   },
 
-  async approve(jobId: string, issueId: string, approved: boolean, altText?: string): Promise<{ issue: ApiIssue }> {
+  async approve(
+    jobId: string,
+    issueId: string,
+    approved: boolean,
+    altText?: string,
+    decorative?: boolean,
+  ): Promise<{ issue: ApiIssue }> {
     return unwrap(
       await fetch(`/pdf/jobs/${jobId}/alt-text/${issueId}/approve`, {
         method: 'POST',
         headers: json,
-        body: JSON.stringify({ approved, altText }),
+        body: JSON.stringify({ approved, altText, decorative }),
       }),
     )
   },

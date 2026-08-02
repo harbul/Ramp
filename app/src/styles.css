@@ -619,6 +619,7 @@ button, input, textarea { font: inherit; color: inherit; }
 .issue.is-rejected .field-group,
 .issue.is-rejected .detail { display: none; }
 .issue.is-rejected .issue__actions { border-top: 0; padding-top: 0; }
+.issue.is-decorative { border-left-color: var(--ink-soft); background: #fcfcfc; }
 
 .linkbtn {
   background: none; border: 0; padding: 0; cursor: pointer;
@@ -654,6 +655,11 @@ button, input, textarea { font: inherit; color: inherit; }
   display: block; font-size: .76rem; font-weight: 700; letter-spacing: .06em;
   text-transform: uppercase; color: var(--ink-soft); margin-bottom: .3rem;
 }
+.field-group__decorative {
+  display: flex; align-items: center; gap: .45rem; margin-bottom: .6rem;
+  font-size: .84rem; color: var(--ink-soft); cursor: pointer;
+}
+.field-group__decorative input { cursor: pointer; }
 .issue textarea {
   width: 100%; min-height: 74px; resize: vertical;
   padding: .6rem .7rem; font-size: .91rem; line-height: 1.5;
@@ -665,6 +671,7 @@ button, input, textarea { font: inherit; color: inherit; }
   border-color: var(--green); box-shadow: 0 0 0 3px rgba(4,57,39,.12); outline: none;
 }
 .issue textarea:focus-visible { outline: 3px solid var(--gold-deep); outline-offset: 1px; }
+.issue textarea:disabled { background: var(--bg); color: var(--ink-soft); cursor: not-allowed; }
 .counter { margin: .25rem 0 0; font-size: .76rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 .counter.is-over { color: var(--alert-ink); font-weight: 700; }
 

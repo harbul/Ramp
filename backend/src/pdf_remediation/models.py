@@ -140,6 +140,11 @@ class Issue:
     suggested_alt_text: str | None = None
     approved_alt_text: str | None = None
     status: IssueStatus = IssueStatus.DETECTED
+    # True once approved as decorative — the figure gets an explicit EMPTY
+    # /Alt (not a missing one) so assistive tech skips it instead of reading
+    # a description. Pre-filled from the AI's own is_decorative call when a
+    # real provider is active; always overridable by the reviewer.
+    is_decorative: bool = False
 
     @property
     def is_approved(self) -> bool:

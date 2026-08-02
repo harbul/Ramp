@@ -44,6 +44,9 @@ type Phase =
 interface Review {
   altText: string
   rejected: boolean
+  /** Explicit empty /Alt — tells assistive tech to skip this figure entirely,
+   *  as distinct from a genuinely missing /Alt (unremediated). */
+  decorative: boolean
 }
 
 /** Per-image OCR reviewer state, keyed by imageId. */
@@ -294,7 +297,11 @@ export function RemediateFlow({ target = null, onFixApplied }: RemediateFlowProp
       setJob(ready)
       const initial: Record<string, Review> = {}
       for (const issue of ready.issues) {
-        initial[issue.issueId] = { altText: issue.suggestedAltText ?? '', rejected: false }
+        initial[issue.issueId] = {
+          altText: issue.suggestedAltText ?? '',
+          rejected: false,
+          decorative: issue.isDecorative,
+        }
       }
       setReviews(initial)
     } catch (err) {
@@ -317,6 +324,10 @@ export function RemediateFlow({ target = null, onFixApplied }: RemediateFlowProp
       for (const issue of job.issues) {
         const r = reviews[issue.issueId]
         if (!r) continue
+        if (r.decorative) {
+          await api.approve(job.jobId, issue.issueId, true, undefined, true)
+          continue
+        }
         if (r.rejected || !r.altText.trim()) {
           if (issue.suggestedAltText) await api.approve(job.jobId, issue.issueId, false)
           continue
@@ -426,7 +437,7 @@ export function RemediateFlow({ target = null, onFixApplied }: RemediateFlowProp
   const suggestable = job?.issues.filter((i) => i.suggestedAltText) ?? []
   const approvedCount = suggestable.filter((i) => {
     const r = reviews[i.issueId]
-    return r && !r.rejected && r.altText.trim()
+    return r && !r.rejected && (r.decorative || r.altText.trim())
   }).length
 
   const sections = wcag ? groupIntoSections(wcag) : []
@@ -564,6 +575,7 @@ export function RemediateFlow({ target = null, onFixApplied }: RemediateFlowProp
                         [issueId]: {
                           altText: '',
                           rejected: false,
+                          decorative: false,
                           ...prev[issueId],
                           ...patch,
                         },
@@ -906,11 +918,12 @@ function IssueRow({
   }
 
   const rejected = review?.rejected ?? false
+  const decorative = review?.decorative ?? false
   const text = review?.altText ?? ''
   const over = text.trim().length > ALT_LIMIT
 
   return (
-    <li className={`issue${rejected ? ' is-rejected' : ' is-selected'}`}>
+    <li className={`issue${rejected ? ' is-rejected' : decorative ? ' is-decorative' : ' is-selected'}`}>
       <div className="issue__head">
         <div className="issue__main">
           <div className="issue__tags">
@@ -933,18 +946,31 @@ function IssueRow({
 
         {!rejected && (
           <div className="field-group">
+            <label className="field-group__decorative">
+              <input
+                type="checkbox"
+                checked={decorative}
+                onChange={(e) => onChange({ decorative: e.target.checked })}
+              />
+              Mark as decorative (no description needed — screen readers will skip it)
+            </label>
             <label className="field-group__label" htmlFor={`alt-${issue.issueId}`}>
               <span className="ai">AI-suggested alt text</span>
             </label>
             <textarea
               id={`alt-${issue.issueId}`}
               value={text}
+              disabled={decorative}
               onChange={(e) => onChange({ altText: e.target.value })}
             />
-            <p className={`counter${over ? ' is-over' : ''}`}>
-              {text.trim().length} of {ALT_LIMIT} characters
-              {over && ', shorten it before applying'}
-            </p>
+            {decorative ? (
+              <p className="counter">Decorative — this figure will be skipped by screen readers.</p>
+            ) : (
+              <p className={`counter${over ? ' is-over' : ''}`}>
+                {text.trim().length} of {ALT_LIMIT} characters
+                {over && ', shorten it before applying'}
+              </p>
+            )}
           </div>
         )}
 
