@@ -3,6 +3,13 @@
 **Sacramento State · CSUS PDF Modernization Assistant**
 _Last updated: July 17, 2026_
 
+> **This is a dated historical handoff snapshot**, kept for context on how
+> the project got here — it predates the app's rename to **Ramp**, the
+> sectioned **Workbench** UI, decorative alt-text marking, heading/bookmark
+> auto-repair, and the clone-based **Fix Issues** flow. For the current
+> state of the project, start with [`../README.md`](../README.md) and the
+> [Quick Start Guide](QUICKSTART.md) instead.
+
 Single source of truth for the project's current state: what it does, what is
 built and verified, what is still a prototype, how to run it, and what comes
 next. Read this first when picking up the project.
