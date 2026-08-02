@@ -335,6 +335,8 @@ Each branch on this repo is a focused view of the codebase:
 - **Backend Lambda:** not deployed yet — the FastAPI service runs locally (or on any host that can reach AWS) against real Bedrock/Textract/S3/DynamoDB
 
 ---
+<img width="2880" height="3032" alt="image" src="https://github.com/user-attachments/assets/1a4285c9-a06b-4eaa-8a87-a26ed088cdb1" />
+
 
 ## License
 
@@ -342,4 +344,4 @@ MIT — see [LICENSE](LICENSE).
 
 ---
 
-Built for the ADA Title II deadline. Sole maintainer: **harbul**.
+Built for the ADA Title II deadline. 
