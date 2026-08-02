@@ -285,6 +285,7 @@ class RemediationService:
                     severity="Low" if suggestion.is_decorative else "High",
                     suggested_alt_text=suggestion.alt_text,
                     status=IssueStatus.SUGGESTED,
+                    is_decorative=suggestion.is_decorative,
                 )
             )
 
@@ -355,20 +356,40 @@ class RemediationService:
 
     # ── review ────────────────────────────────────────────────────────
 
-    def approve(self, job_id: str, issue_id: str, *, approved: bool, alt_text: str | None = None) -> Issue:
+    def approve(
+        self,
+        job_id: str,
+        issue_id: str,
+        *,
+        approved: bool,
+        alt_text: str | None = None,
+        decorative: bool = False,
+    ) -> Issue:
         """Record the reviewer's decision.
 
         `alt_text` is the reviewer's edit and takes precedence over the model's
         suggestion. If they didn't edit it, the suggestion stands.
+
+        `decorative=True` marks the figure as decorative instead of providing
+        real alt text: it writes an explicit EMPTY /Alt, which tells
+        assistive tech to skip the figure entirely rather than read a
+        description. This is a legitimate outcome, not a rejection — the
+        figure is still "handled," just handled by declaring it has nothing
+        to say. Takes precedence over `alt_text` when both are supplied.
         """
         job = self.get_job(job_id)
         issue = job.issue(issue_id)
         if issue is None:
             raise IssueNotFound(f"No issue {issue_id!r} on job {job_id!r}.")
 
-        if not approved:
+        if decorative:
+            issue.approved_alt_text = ""
+            issue.is_decorative = True
+            issue.status = IssueStatus.APPROVED
+        elif not approved:
             issue.status = IssueStatus.REJECTED
             issue.approved_alt_text = None
+            issue.is_decorative = False
         else:
             text = alt_text if alt_text is not None else issue.suggested_alt_text
             if not text or not text.strip():
@@ -382,6 +403,7 @@ class RemediationService:
                 )
             issue.approved_alt_text = text
             issue.status = IssueStatus.APPROVED
+            issue.is_decorative = False
 
         job.updated_at = utc_now()
         self.jobs.put_job(job)
@@ -402,10 +424,14 @@ class RemediationService:
 
         try:
             data = self.storage.get_bytes(job.original_pdf_location)
+            # `is not None`, not truthy: a decorative approval's alt text is
+            # the empty string, which must still be written (an explicit
+            # empty /Alt, not a missing one) — a truthy check would silently
+            # drop every decorative figure from this batch.
             approvals = {
                 i.struct_elem_ref: i.approved_alt_text
                 for i in job.issues
-                if i.is_approved and i.approved_alt_text
+                if i.is_approved and i.approved_alt_text is not None
             }
 
             result = apply_alt_text(data, approvals)

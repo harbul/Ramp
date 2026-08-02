@@ -172,7 +172,11 @@ def verify_alt_text(data: bytes, applied: list[AppliedFix]) -> None:
             for fix in applied:
                 want = _normalise(fix.alt_text)
                 here = present.get((fix.page_number, fix.mcid), [])
-                if want not in [(_normalise(a) if a else None) for a in here]:
+                # `a is not None`, not truthy: an explicit empty /Alt (the
+                # decorative case) must compare equal to "", not collapse to
+                # the same None bucket as a genuinely MISSING /Alt — those are
+                # different outcomes and a truthy check can't tell them apart.
+                if want not in [(_normalise(a) if a is not None else None) for a in here]:
                     raise VerificationFailed(
                         f"Approved alt text for the figure on page {fix.page_number} "
                         f"(mcid {fix.mcid}) is not present in the output PDF."

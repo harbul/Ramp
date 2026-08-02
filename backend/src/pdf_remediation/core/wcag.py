@@ -25,6 +25,7 @@ The checker only reads the PDF - it never mutates it. Fixers live in
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from io import BytesIO
@@ -32,7 +33,9 @@ from io import BytesIO
 import pikepdf
 from pikepdf import Name, Pdf
 
+from .bookmarks import outline_is_valid
 from .scan import walk_figures
+from .tables import row_cells, table_rows, walk_tables
 
 
 class Severity(StrEnum):
@@ -124,15 +127,27 @@ def _doc_title(pdf: Pdf) -> str | None:
         return None
 
 
+_PDFUA_PART_ELEMENT_RE = re.compile(r"<pdfuaid:part\b[^>]*>\s*1\s*</pdfuaid:part>")
+_PDFUA_PART_ATTR_RE = re.compile(r'pdfuaid:part\s*=\s*"1"')
+
+
 def _has_pdfua_metadata(pdf: Pdf) -> bool:
-    """XMP metadata declares PDF/UA-1 conformance (pdfuaid:part = 1)."""
+    """XMP metadata declares PDF/UA-1 conformance (pdfuaid:part = 1).
+
+    Tolerates the namespace declaration living on the element itself, e.g.
+    ``<pdfuaid:part xmlns:pdfuaid="...">1</pdfuaid:part>`` — the form
+    pikepdf's own XMP writer produces — as well as the attribute-style
+    ``pdfuaid:part="1"``. An exact-substring match on ``<pdfuaid:part>1``
+    would reject perfectly valid XMP the moment any attribute sits between
+    the tag name and its content, which is the common case.
+    """
     try:
         meta_stream = pdf.Root.get("/Metadata")
         if meta_stream is None:
             return False
         raw = bytes(meta_stream.read_bytes())
         text = raw.decode("utf-8", errors="ignore")
-        return "pdfuaid:part" in text and ("<pdfuaid:part>1" in text or 'pdfuaid:part="1"' in text)
+        return bool(_PDFUA_PART_ELEMENT_RE.search(text) or _PDFUA_PART_ATTR_RE.search(text))
     except Exception:
         return False
 
@@ -240,50 +255,21 @@ def _iter_heading_levels(pdf: Pdf) -> list[int]:
 
 
 def _tables_missing_headers(pdf: Pdf) -> list[str]:
-    """Return locations of /Table elements whose first row has no /TH cell."""
-    if "/StructTreeRoot" not in pdf.Root:
-        return []
+    """Return locations of /Table elements whose first row has no /TH cell.
+
+    Uses the same row-walking as core.tables.fix_table_headers, so a table
+    whose header row is wrapped in /THead is recognised here too - not just
+    a flat /Table -> /TR shape.
+    """
     bad_locations: list[str] = []
-    table_counter = 0
-
-    def visit(node, depth=0):
-        nonlocal table_counter
-        if depth > 128 or not isinstance(node, (pikepdf.Dictionary, pikepdf.Array)):
-            return
-        if isinstance(node, pikepdf.Array):
-            for k in node:
-                visit(k, depth + 1)
-            return
-        s = node.get("/S")
-        if s is not None and str(s) == "/Table":
-            table_counter += 1
-            kids = node.get("/K")
-            first_row = None
-            if kids is not None:
-                for kid in (kids if isinstance(kids, pikepdf.Array) else [kids]):
-                    if isinstance(kid, pikepdf.Dictionary) and str(kid.get("/S", "")) == "/TR":
-                        first_row = kid
-                        break
-            has_th = False
-            if first_row is not None:
-                row_kids = first_row.get("/K")
-                if row_kids is not None:
-                    for cell in (row_kids if isinstance(row_kids, pikepdf.Array) else [row_kids]):
-                        if isinstance(cell, pikepdf.Dictionary) and str(cell.get("/S", "")) == "/TH":
-                            has_th = True
-                            break
-            if not has_th:
-                bad_locations.append(f"Table {table_counter}")
-        kids = node.get("/K")
-        if kids is not None:
-            visit(kids, depth + 1)
-
-    visit(pdf.Root.StructTreeRoot.get("/K"))
+    for index, table in enumerate(walk_tables(pdf), start=1):
+        rows = table_rows(table)
+        if not rows:
+            continue
+        cells = row_cells(rows[0])
+        if not any(str(c.get("/S", "")) == "/TH" for c in cells):
+            bad_locations.append(f"Table {index}")
     return bad_locations
-
-
-def _has_outline(pdf: Pdf) -> bool:
-    return "/Outlines" in pdf.Root
 
 
 def _page_count(pdf: Pdf) -> int:
@@ -506,11 +492,15 @@ def _check_open_pdf(pdf: Pdf) -> WcagReport:
                 description=(
                     "The document has no /H1-/H6 elements. Screen-reader users navigate"
                     " long documents by heading; without them, the only option is"
-                    " reading top-to-bottom."
+                    " reading top-to-bottom. Ramp can propose a heading structure by"
+                    " comparing font sizes against the document's body text — every"
+                    " promoted heading is listed for review, and no visible text,"
+                    " layout, or formatting is touched."
                 ),
                 severity=Severity.MAJOR,
                 passed=False,
-                manual_review=True,
+                auto_fixable=True,
+                fix_action="promote_headings",
                 count=1,
             ))
         else:
@@ -539,12 +529,15 @@ def _check_open_pdf(pdf: Pdf) -> WcagReport:
                 wcag_level=Level.AA,
                 title=f"Heading levels are skipped ({len(skipped)} place(s))",
                 description=(
-                    f"Skipping levels breaks assistive navigation: {desc}. Rewrite the"
-                    " outline so levels increase by 1 at a time."
+                    f"Skipping levels breaks assistive navigation: {desc}. Ramp can"
+                    " renumber the existing headings so levels increase by 1 at a"
+                    " time — this only changes the /H tag on headings the document"
+                    " already has, never the visible text or formatting."
                 ),
                 severity=Severity.MINOR,
                 passed=False,
-                manual_review=True,
+                auto_fixable=True,
+                fix_action="fix_heading_skip",
                 count=len(skipped),
             ))
         else:
@@ -562,23 +555,7 @@ def _check_open_pdf(pdf: Pdf) -> WcagReport:
     bad_tables = _tables_missing_headers(pdf)
     # Only report if there are any tables at all
     if _has_struct_tree(pdf):
-        # Fast walk to count tables
-        table_count = 0
-        def _count_tables(node, depth=0):
-            nonlocal table_count
-            if depth > 128:
-                return
-            if isinstance(node, pikepdf.Array):
-                for k in node:
-                    _count_tables(k, depth + 1)
-                return
-            if isinstance(node, pikepdf.Dictionary):
-                if str(node.get("/S", "")) == "/Table":
-                    table_count += 1
-                kids = node.get("/K")
-                if kids is not None:
-                    _count_tables(kids, depth + 1)
-        _count_tables(pdf.Root.StructTreeRoot.get("/K"))
+        table_count = sum(1 for _ in walk_tables(pdf))
 
         if table_count == 0:
             pass  # no rule fires
@@ -600,11 +577,14 @@ def _check_open_pdf(pdf: Pdf) -> WcagReport:
                 title=f"{len(bad_tables)} of {table_count} table(s) missing header cells",
                 description=(
                     "Data tables without /TH cells make screen readers announce each"
-                    " cell without column context. Add header cells in the first row."
+                    " cell without column context. Ramp can retag the first row of"
+                    " each table as column headers (/TH with /Scope=Column) - the"
+                    " same fix you'd make by hand in a PDF editor."
                 ),
                 severity=Severity.MAJOR,
                 passed=False,
-                manual_review=True,
+                auto_fixable=True,
+                fix_action="fix_table_headers",
                 location=", ".join(bad_tables[:5]),
                 count=len(bad_tables),
             ))
@@ -704,7 +684,7 @@ def _check_open_pdf(pdf: Pdf) -> WcagReport:
     # 11. Bookmarks for long documents (best-practice / WCAG 2.4.5)
     pages = _page_count(pdf)
     if pages > 10:
-        if _has_outline(pdf):
+        if outline_is_valid(pdf):
             findings.append(Finding(
                 rule_id="WCAG-2.4.5-bookmarks",
                 wcag_sc="2.4.5",
@@ -715,18 +695,33 @@ def _check_open_pdf(pdf: Pdf) -> WcagReport:
                 passed=True,
             ))
         else:
+            has_broken_outline = "/Outlines" in pdf.Root
             findings.append(Finding(
                 rule_id="WCAG-2.4.5-bookmarks",
                 wcag_sc="2.4.5",
                 wcag_level=Level.AA,
-                title=f"No bookmarks in a {pages}-page document",
-                description=(
-                    "Documents longer than ~10 pages should include a bookmark outline"
-                    " so users can jump between sections."
+                title=(
+                    f"Bookmarks are broken in a {pages}-page document"
+                    if has_broken_outline
+                    else f"No bookmarks in a {pages}-page document"
                 ),
+                description=(
+                    (
+                        "This document has a bookmark outline, but its entries don't"
+                        " resolve to real pages in this file — likely left over from a"
+                        " merge or template that was never fixed. Ramp can rebuild it"
+                    )
+                    if has_broken_outline
+                    else (
+                        "Documents longer than ~10 pages should include a bookmark"
+                        " outline so users can jump between sections. Ramp can build"
+                        " one automatically"
+                    )
+                ) + " from the document's heading structure, once headings exist.",
                 severity=Severity.MINOR,
                 passed=False,
-                manual_review=True,
+                auto_fixable=True,
+                fix_action="fix_bookmarks",
                 count=1,
             ))
 

@@ -56,6 +56,7 @@ def issue_from_dict(data: dict) -> Issue:
         suggested_alt_text=data.get("suggested_alt_text"),
         approved_alt_text=data.get("approved_alt_text"),
         status=IssueStatus(data.get("status", "DETECTED")),
+        is_decorative=data.get("is_decorative", False),
     )
 
 

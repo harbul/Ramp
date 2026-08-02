@@ -48,6 +48,7 @@ def camelise(value: Any) -> Any:
 class ApproveRequest(BaseModel):
     approved: bool
     altText: str | None = None  # noqa: N815 - the wire is camelCase
+    decorative: bool = False
 
 
 class CreateJobRequest(BaseModel):
@@ -297,7 +298,9 @@ def create_app(
         buildResult() in the frontend never reads IssueState.altText, so if this
         took the whole result object instead, every edit would be silently lost.
         """
-        issue = svc().approve(job_id, issue_id, approved=body.approved, alt_text=body.altText)
+        issue = svc().approve(
+            job_id, issue_id, approved=body.approved, alt_text=body.altText, decorative=body.decorative
+        )
         return {"issue": camelise(issue)}
 
     @app.post("/pdf/jobs/{job_id}/apply", status_code=202)

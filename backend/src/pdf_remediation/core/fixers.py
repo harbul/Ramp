@@ -21,6 +21,10 @@ from pathlib import Path
 import pikepdf
 from pikepdf import Name, Pdf, String
 
+from .bookmarks import generate_bookmarks_from_headings
+from .headings import promote_missing_headings, repair_heading_skips
+from .tables import fix_table_headers
+
 
 DEFAULT_LANG = "en-US"
 DEFAULT_PDFUA_XMP = """<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>
@@ -152,6 +156,41 @@ def one_click_modernize(
     if not current_title:
         current = set_title(current, title)
         actions.append(f"Set document title to '{title}'")
+
+    # Table headers: retag each table's first row as /TH with /Scope=Column
+    # when it has none. Tag-only — the same fix a reviewer would make by hand.
+    table_result = fix_table_headers(current)
+    if table_result.actions:
+        current = table_result.pdf_bytes
+        actions.extend(table_result.actions)
+
+    # Heading structure: promote font-size-based candidates if the document
+    # has none, then (either way) renumber any skipped levels. Both are
+    # tag-only edits — no content stream is touched, so visible text and
+    # formatting are unchanged. Order matters: promotion must run before
+    # skip-repair so a freshly-promoted set of headings gets the same
+    # skip-safety check as pre-existing ones.
+    promote_result = promote_missing_headings(current)
+    if promote_result.actions:
+        current = promote_result.pdf_bytes
+        actions.extend(promote_result.actions)
+
+    skip_result = repair_heading_skips(current)
+    if skip_result.actions:
+        current = skip_result.pdf_bytes
+        actions.extend(skip_result.actions)
+
+    # Bookmarks: only meaningful once headings exist, and only worth adding
+    # past ~10 pages (matches the WCAG-2.4.5 rule's own threshold). Always
+    # regenerates rather than checking first — a broken outline and a
+    # missing one are fixed by the same call.
+    with _open(current) as pdf:
+        page_count = len(pdf.pages)
+    if page_count > 10:
+        bookmark_result = generate_bookmarks_from_headings(current)
+        if bookmark_result.actions:
+            current = bookmark_result.pdf_bytes
+            actions.extend(bookmark_result.actions)
 
     current = set_pdfua_metadata(current, title=title or current_title, lang=lang)
     actions.append("Declared PDF/UA-1 conformance in XMP metadata")
