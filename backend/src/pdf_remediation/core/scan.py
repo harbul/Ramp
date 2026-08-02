@@ -176,17 +176,24 @@ def _has_form_fields(pdf: Pdf) -> bool:
 
 
 def _has_digital_signatures(pdf: Pdf) -> bool:
-    """Check if PDF contains digital signatures."""
+    """True if a signature field has actually been signed - not just present
+    as an empty placeholder.
+
+    An unsigned `/FT /Sig` field is just a blank slot on the form; nothing
+    cryptographic exists yet, so modifying unrelated parts of the document
+    (writing /Alt onto a figure) can't invalidate anything. Once a field is
+    actually signed it carries a /V signature dictionary and /SigFlags bit 1
+    (SignaturesExist) is set - that's the case worth refusing to touch.
+    """
     try:
         if "/AcroForm" not in pdf.Root:
             return False
         acro_form = pdf.Root.AcroForm
-        if "/SigFlags" in acro_form and acro_form.SigFlags > 0:
+        if "/SigFlags" in acro_form and int(acro_form.SigFlags) & 1:
             return True
-        # Check for signature fields
         if "/Fields" in acro_form:
             for field in acro_form.Fields:
-                if field.get("/FT") == Name.Sig:
+                if field.get("/FT") == Name.Sig and field.get("/V") is not None:
                     return True
         return False
     except Exception:
@@ -287,25 +294,29 @@ def classify_document(pdf: Pdf, file_size_bytes: int) -> tuple[DocumentRoute, Un
     if page_count > OCR_MAX_PAGES:
         return DocumentRoute.UNSUPPORTED, UnsupportedReason.TOO_MANY_PAGES, is_scan_dominant
     
-    # Check for interactive elements
-    if _has_form_fields(pdf):
-        return DocumentRoute.UNSUPPORTED, UnsupportedReason.INTERACTIVE_FORMS, is_scan_dominant
-        
+    # An actually-signed document can't be touched at all - writing anything
+    # (even an unrelated /Alt on a figure) would invalidate the cryptographic
+    # signature. This is a hard safety gate, checked unconditionally.
     if _has_digital_signatures(pdf):
         return DocumentRoute.UNSUPPORTED, UnsupportedReason.DIGITALLY_SIGNED, is_scan_dominant
-    
+
     # Check language issues
     if _detect_language_issues(pdf):
         return DocumentRoute.UNSUPPORTED, UnsupportedReason.NON_ENGLISH_LANGUAGE, is_scan_dominant
-    
+
     # Check document structure for routing decision
     tagged = is_tagged(pdf)
     figures = list(walk_figures(pdf))
     missing_alt = sum(1 for f in figures if not f.has_alt_text)
-    
+
     if tagged:
         if figures and missing_alt > 0:
-            # Tagged document with figures missing alt text -> existing workflow
+            # Tagged document with figures missing alt text -> existing workflow.
+            # Interactive form fields (checkboxes, text fields) don't block this:
+            # writing /Alt onto a /Figure is unrelated to a form field's value,
+            # so a form having fields is not a reason to refuse remediating its
+            # figures. (An *unlabelled* field is a separate WCAG 4.1.2 finding,
+            # surfaced by the checker, not a routing blocker.)
             return DocumentRoute.ALT_TEXT_REMEDIATION, None, is_scan_dominant
         elif not figures:
             # Tagged but no figures -> nothing to process
@@ -314,7 +325,12 @@ def classify_document(pdf: Pdf, file_size_bytes: int) -> tuple[DocumentRoute, Un
             # Tagged with all figures having alt text -> nothing to do
             return DocumentRoute.UNSUPPORTED, UnsupportedReason.NO_PROCESSABLE_CONTENT, is_scan_dominant
     else:
-        # Untagged document
+        # Untagged document. Here, interactive fields genuinely matter: an
+        # untagged interactive form is exactly the case that needs a human
+        # decision (recreate in an accessible form tool, or migrate to a
+        # platform like Adobe Sign) rather than automated remediation.
+        if _has_form_fields(pdf):
+            return DocumentRoute.UNSUPPORTED, UnsupportedReason.INTERACTIVE_FORMS, is_scan_dominant
         if is_scan_dominant and file_size_bytes <= OCR_MAX_FILE_SIZE_BYTES and page_count <= OCR_MAX_PAGES:
             # Eligible for OCR reconstruction
             return DocumentRoute.OCR_RECONSTRUCTION, None, is_scan_dominant
