@@ -335,6 +335,9 @@ Each branch on this repo is a focused view of the codebase:
 - **Backend Lambda:** not deployed yet — the FastAPI service runs locally (or on any host that can reach AWS) against real Bedrock/Textract/S3/DynamoDB
 
 ---
+<img width="1440" height="656" alt="image" src="https://github.com/user-attachments/assets/f0a65bc1-94a4-48d5-9b11-ef1ef5822c23" />
+
+
 <img width="2880" height="3032" alt="image" src="https://github.com/user-attachments/assets/1a4285c9-a06b-4eaa-8a87-a26ed088cdb1" />
 
 
